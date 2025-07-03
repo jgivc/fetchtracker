@@ -1,0 +1,15 @@
+package entity
+
+import "time"
+
+// Download представляет одну раздачу (папку). Это агрегат.
+type Download struct {
+	ID          string // Стабильный хеш, уникальный идентификатор раздачи
+	Title       string // Заголовок раздачи из manifest.yml или имя папки
+	Description string // HTML-описание из description.md
+	Enabled     bool
+	Files       []File    // Список файлов, принадлежащих этой раздаче
+	SourcePath  string    // Внутренний путь к папке на диске
+	CreatedAt   time.Time // Время создания (первой индексации)
+	UpdatedAt   time.Time
+}
