@@ -12,6 +12,10 @@ import (
 	"github.com/jgivc/fetchtracker/internal/entity"
 )
 
+const (
+	maxDirs = 100
+)
+
 type FSAdapter interface {
 	ToDownload(folderPath string) (*entity.Download, error)
 }
@@ -46,6 +50,10 @@ func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
 	for _, entry := range entries {
 		if entry.IsDir() {
 			dirs = append(dirs, entry.Name())
+		}
+
+		if len(dirs) >= maxDirs {
+			break
 		}
 	}
 
