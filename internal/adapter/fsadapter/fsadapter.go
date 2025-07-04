@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -41,7 +40,6 @@ type fsAdapter struct {
 	log          *slog.Logger
 }
 
-// Добавьте конструктор
 func NewFSAdapter(descFileName string, skipFiles []string, log *slog.Logger) *fsAdapter {
 	skipFilesMap := make(map[string]struct{})
 	skipFilesMap[descFileName] = struct{}{}
@@ -106,7 +104,7 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 }
 
 func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
-	entries, err := os.ReadDir(folderPath)
+	entries, err := afero.ReadDir(a.fs, folderPath)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +125,14 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 
 			fDesc.ID = getIDFromPath(fDesc.SourcePath)
 
-			stat, err := os.Stat(fDesc.SourcePath)
+			stat, err := a.fs.Stat(fDesc.SourcePath)
 			if err != nil {
 				a.log.Error("Cannot get file size", slog.String("path", fDesc.SourcePath), slog.Any("error", err))
 			} else {
 				fDesc.Size = stat.Size()
 			}
 
-			mimeType, err := getMimeType(fDesc.SourcePath)
+			mimeType, err := a.getMimeType(fDesc.SourcePath)
 			if err != nil {
 				a.log.Error("Cannot get file mimeType", slog.String("path", fDesc.SourcePath), slog.Any("error", err))
 			} else {
@@ -154,14 +152,14 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 
 func (a *fsAdapter) getFolderDesc(folderPath string) (string, *FolderDesc, error) {
 	filePath := filepath.Join(folderPath, a.descFileName)
-	if !fileExists(filePath) {
+	if !a.fileExists(filePath) {
 		return "", &FolderDesc{
 			Title:   filepath.Base(folderPath),
 			Enabled: true,
 		}, nil
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := afero.ReadFile(a.fs, filePath)
 	if err != nil {
 		return "", nil, fmt.Errorf("cannot read description file")
 	}
@@ -181,14 +179,14 @@ func (a *fsAdapter) getFolderDesc(folderPath string) (string, *FolderDesc, error
 	return buf.String(), &fd, nil
 }
 
-func getMimeType(filePath string) (string, error) {
+func (a *fsAdapter) getMimeType(filePath string) (string, error) {
 	if ext := filepath.Ext(filePath); ext != "" {
 		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
 			return mimeType, nil
 		}
 	}
 
-	file, err := os.Open(filePath)
+	file, err := a.fs.Open(filePath)
 	if err != nil {
 		return mimeTypeUnknown, err
 	}
@@ -204,22 +202,23 @@ func getMimeType(filePath string) (string, error) {
 	return contentType, nil
 }
 
+func (a *fsAdapter) fileExists(path string) bool {
+	_, err := a.fs.Stat(path)
+	if err == nil {
+		return true // Path exists
+	}
+
+	if os.IsNotExist(err) {
+		return false
+	}
+	// Other errors (e.g., permission issues)
+	// fmt.Printf("Error checking path %s: %v\n", path, err)
+	return false
+}
+
 func getIDFromPath(filePath string) string {
 	hasher := sha1.New()
 	hasher.Write([]byte(filePath))
 
 	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true // Path exists
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return false // Path does not exist
-	}
-	// Other errors (e.g., permission issues)
-	// fmt.Printf("Error checking path %s: %v\n", path, err)
-	return false
 }
