@@ -8,7 +8,7 @@ type Download struct {
 	Title       string // Заголовок раздачи из manifest.yml или имя папки
 	Description string // HTML-описание из description.md
 	Enabled     bool
-	Files       []File    // Список файлов, принадлежащих этой раздаче
+	Files       []*File   // Список файлов, принадлежащих этой раздаче
 	SourcePath  string    // Внутренний путь к папке на диске
 	CreatedAt   time.Time // Время создания (первой индексации)
 	UpdatedAt   time.Time
