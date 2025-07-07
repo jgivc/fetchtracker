@@ -41,6 +41,10 @@ type fsAdapter struct {
 }
 
 func NewFSAdapter(descFileName string, skipFiles []string, log *slog.Logger) *fsAdapter {
+	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, skipFiles, log)
+}
+
+func NewFSAdapterWithFS(fs afero.Fs, descFileName string, skipFiles []string, log *slog.Logger) *fsAdapter {
 	skipFilesMap := make(map[string]struct{})
 	skipFilesMap[descFileName] = struct{}{}
 	for _, file := range skipFiles {
@@ -54,6 +58,7 @@ func NewFSAdapter(descFileName string, skipFiles []string, log *slog.Logger) *fs
 	)
 
 	return &fsAdapter{
+		fs:           fs,
 		descFileName: descFileName,
 		skipFiles:    skipFilesMap,
 		md:           md,

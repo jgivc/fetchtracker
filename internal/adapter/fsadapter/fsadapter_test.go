@@ -1,45 +1,66 @@
 package fsadapter
 
 import (
-	"bytes"
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/parser"
-	"go.abhg.dev/goldmark/frontmatter"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestGoldmark(t *testing.T) {
-	src := []byte(`---
-title: "Test page"
-enabled: true
----
-	
-# Test test
-test page
-`)
+type FSAdapterTestSuite struct {
+	suite.Suite
+	adapter *fsAdapter
+	fs      afero.Fs
+	log     *slog.Logger
+}
 
-	md := goldmark.New(
-		goldmark.WithExtensions(
-			&frontmatter.Extender{},
-		),
-	)
+func (s *FSAdapterTestSuite) SetupTest() {
+	s.fs = afero.NewMemMapFs()
+	s.log = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+}
 
-	var buf bytes.Buffer
+func (s *FSAdapterTestSuite) TestEmptyFolder() {
+	dirName := "/testdir"
+	a := NewFSAdapterWithFS(s.fs, "description.md", nil, s.log)
+	a.fs.Mkdir(dirName, os.ModeDir)
+	_, err := a.ToDownload(dirName)
+	s.Error(err)
+}
 
-	ctx := parser.NewContext()
-	if err := md.Convert(src, &buf, parser.WithContext(ctx)); err != nil {
-		t.Fatal(err)
-	}
+func (s *FSAdapterTestSuite) TestFolderWithOneFileWithoutDescription() {
+	root := "/"
+	dirName := "testdir"
+	dirPath := filepath.Join(root, dirName)
+	fileName := "file1.txt"
+	filePath := filepath.Join(dirPath, fileName)
+	fileContent := []byte("Test file content")
 
-	fm := frontmatter.Get(ctx)
+	s.fs.Mkdir(dirPath, os.ModeDir)
+	afero.WriteFile(s.fs, filePath, fileContent, os.ModeAppend)
 
-	var meta map[string]any
-	if err := fm.Decode(&meta); err != nil {
-		t.Fatal(err)
-	}
+	a := NewFSAdapterWithFS(s.fs, "description.md", nil, s.log)
+	d, err := a.ToDownload(dirPath)
 
-	fmt.Println("Content:", buf.String())
-	fmt.Println("fm:", meta)
+	s.Require().NoError(err)
+
+	s.NotNil(d)
+	fmt.Println(d)
+	s.Equal(dirPath, d.SourcePath)
+	s.Equal(dirName, d.Title)
+	s.Len(d.Files, 1)
+
+	f := d.Files[0]
+	s.Equal(fileName, f.Name)
+	s.Equal(int64(len(fileContent)), f.Size)
+	s.Equal(filePath, f.SourcePath)
+	fmt.Println(f)
+}
+
+func TestFSAdapterTestSuite(t *testing.T) {
+	suite.Run(t, new(FSAdapterTestSuite))
 }
