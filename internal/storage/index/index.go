@@ -2,12 +2,13 @@ package index
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 
+	"github.com/jgivc/fetchtracker/internal/common"
 	"github.com/jgivc/fetchtracker/internal/config"
 	"github.com/jgivc/fetchtracker/internal/entity"
 )
@@ -31,13 +32,13 @@ func NewIndexStorage(adapter FSAdapter, cfg *config.IndexerConfig, log *slog.Log
 	return &indexStorage{
 		adapter: adapter,
 		cfg:     cfg,
-		log:     log,
+		log:     log.With(slog.String("item", "IndexStorage")),
 	}
 }
 
 func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
 	if !i.running.CompareAndSwap(false, true) {
-		return nil, fmt.Errorf("already running")
+		return nil, common.ErrIndexingProcessHasAlreadyStarted
 	}
 	defer i.running.Store(false)
 
@@ -49,7 +50,7 @@ func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
 	var dirs []string
 	for _, entry := range entries {
 		if entry.IsDir() {
-			dirs = append(dirs, entry.Name())
+			dirs = append(dirs, filepath.Join(i.cfg.WorkDir, entry.Name()))
 		}
 
 		if len(dirs) >= maxDirs {
@@ -82,6 +83,7 @@ func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
 
 	var downloads []*entity.Download
 	for download := range out {
+		i.log.Info("Found folder", slog.String("id", download.ID), slog.String("path", download.SourcePath))
 		downloads = append(downloads, download)
 	}
 

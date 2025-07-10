@@ -26,9 +26,10 @@ func (s *FSAdapterTestSuite) SetupTest() {
 
 func (s *FSAdapterTestSuite) TestEmptyFolder() {
 	dirName := "/testdir"
-	a := NewFSAdapterWithFS(s.fs, "description.md", nil, s.log)
+	a, err := NewFSAdapterWithFS(s.fs, "description.md", "", "", nil, s.log)
+	s.NoError(err)
 	a.fs.Mkdir(dirName, os.ModeDir)
-	_, err := a.ToDownload(dirName)
+	_, err = a.ToDownload(dirName)
 	s.Error(err)
 }
 
@@ -43,7 +44,8 @@ func (s *FSAdapterTestSuite) TestFolderWithOneFileWithoutDescription() {
 	s.fs.Mkdir(dirPath, os.ModeDir)
 	afero.WriteFile(s.fs, filePath, fileContent, os.ModeAppend)
 
-	a := NewFSAdapterWithFS(s.fs, "description.md", nil, s.log)
+	a, err := NewFSAdapterWithFS(s.fs, "description.md", "", "", nil, s.log)
+	s.NoError(err)
 	d, err := a.ToDownload(dirPath)
 
 	s.Require().NoError(err)

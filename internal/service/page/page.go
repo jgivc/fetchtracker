@@ -1,6 +1,7 @@
 package page
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 )
@@ -10,8 +11,9 @@ const (
 )
 
 type PageRepository interface {
-	GetPage(id string) (string, error)
+	GetPage(ctx context.Context, id string) (string, error)
 }
+
 type pageService struct {
 	repo PageRepository
 	log  *slog.Logger
@@ -24,8 +26,8 @@ func NewPageService(repo PageRepository, log *slog.Logger) *pageService {
 	}
 }
 
-func (p *pageService) GetPage(id string) (string, error) {
-	content, err := p.repo.GetPage(id)
+func (p *pageService) GetPage(ctx context.Context, id string) (string, error) {
+	content, err := p.repo.GetPage(ctx, id)
 	if err != nil {
 		p.log.Error("Cannot get page content", slog.String("page_id", id), slog.Any("error", err))
 

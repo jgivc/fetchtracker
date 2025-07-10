@@ -8,16 +8,12 @@ import (
 	"github.com/jgivc/fetchtracker/internal/entity"
 )
 
-const (
-	serviceName = "index"
-)
-
 type DownloadStorage interface {
 	Scan(ctx context.Context) ([]*entity.Download, error)
 }
 
 type DownloadRepository interface {
-	Save(downloads []*entity.Download) error
+	Save(ctx context.Context, downloads []*entity.Download) error
 }
 
 type IndexerService struct {
@@ -30,7 +26,7 @@ func NewIndexService(store DownloadStorage, repo DownloadRepository, log *slog.L
 	return &IndexerService{
 		store: store,
 		repo:  repo,
-		log:   log.With(slog.String("service", serviceName)),
+		log:   log.With(slog.String("item", "IndexService")),
 	}
 }
 
@@ -42,7 +38,15 @@ func (i *IndexerService) Index(ctx context.Context) error {
 		return fmt.Errorf("cannot scan download store: %w", err)
 	}
 
-	if err := i.repo.Save(downloads); err != nil {
+	if len(downloads) < 1 {
+		i.log.Error("Cannot find dirs")
+
+		return fmt.Errorf("cannot find dirs")
+	}
+
+	i.log.Info("Scan storage dirs", slog.Int("count", len(downloads)))
+
+	if err := i.repo.Save(ctx, downloads); err != nil {
 		i.log.Error("Cannot save scan content", slog.Any("error", err))
 
 		return fmt.Errorf("cannot save scan content: %w", err)

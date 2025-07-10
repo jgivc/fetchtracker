@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	"io"
 	"log/slog"
 	"mime"
@@ -24,6 +25,7 @@ import (
 const (
 	maxFiles        = 100
 	mimeTypeUnknown = "application/octet-stream"
+	templateName    = "tmpl"
 )
 
 type FolderDesc struct {
@@ -35,16 +37,18 @@ type FolderDesc struct {
 type fsAdapter struct {
 	fs           afero.Fs
 	descFileName string
+	url          string
 	skipFiles    map[string]struct{}
 	md           goldmark.Markdown
+	tmpl         *template.Template
 	log          *slog.Logger
 }
 
-func NewFSAdapter(descFileName string, skipFiles []string, log *slog.Logger) *fsAdapter {
-	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, skipFiles, log)
+func NewFSAdapter(descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
+	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, tmplFileName, url, skipFiles, log)
 }
 
-func NewFSAdapterWithFS(fs afero.Fs, descFileName string, skipFiles []string, log *slog.Logger) *fsAdapter {
+func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
 	skipFilesMap := make(map[string]struct{})
 	skipFilesMap[descFileName] = struct{}{}
 	for _, file := range skipFiles {
@@ -57,13 +61,32 @@ func NewFSAdapterWithFS(fs afero.Fs, descFileName string, skipFiles []string, lo
 		),
 	)
 
-	return &fsAdapter{
+	fsa := &fsAdapter{
 		fs:           fs,
+		url:          url,
 		descFileName: descFileName,
 		skipFiles:    skipFilesMap,
 		md:           md,
 		log:          log,
 	}
+
+	var (
+		tmpl *template.Template
+		err  error
+	)
+
+	if tmplFileName == "" {
+		tmpl, err = template.New(templateName).Parse(defaultTemplate)
+	} else {
+		tmpl, err = template.New(templateName).ParseFiles(tmplFileName)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse template: %w", err)
+	}
+
+	fsa.tmpl = tmpl
+
+	return fsa, nil
 }
 
 func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
@@ -86,13 +109,12 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 	}
 
 	download := &entity.Download{
-		ID:          getIDFromPath(folderPath),
+		ID:          getIDFromString(&folderPath),
 		Title:       fd.Title,
-		Description: descr,
+		PageContent: descr,
 		Enabled:     fd.Enabled,
 		SourcePath:  folderPath,
 		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
 	}
 
 	if len(fd.Files) > 0 {
@@ -104,6 +126,17 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 	}
 
 	download.Files = files
+
+	var buf bytes.Buffer
+	download.PageContent = descr
+	if err := a.tmpl.Execute(&buf, download); err != nil {
+		return nil, fmt.Errorf("cannot build download page: %w", err)
+	}
+
+	download.PageContent = buf.String()
+	download.PageHash = getIDFromString(&download.PageContent)
+	download.URL = a.url
+	// fmt.Println(download.PageContent)
 
 	return download, nil
 }
@@ -128,7 +161,7 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 				continue
 			}
 
-			fDesc.ID = getIDFromPath(fDesc.SourcePath)
+			fDesc.ID = getIDFromString(&fDesc.SourcePath)
 
 			stat, err := a.fs.Stat(fDesc.SourcePath)
 			if err != nil {
@@ -221,9 +254,13 @@ func (a *fsAdapter) fileExists(path string) bool {
 	return false
 }
 
-func getIDFromPath(filePath string) string {
+func (a *fsAdapter) buildDownloadPage(desc string, download *entity.Download) (string, error) {
+	panic("not implemented")
+}
+
+func getIDFromString(str *string) string {
 	hasher := sha1.New()
-	hasher.Write([]byte(filePath))
+	hasher.Write([]byte(*str))
 
 	return hex.EncodeToString(hasher.Sum(nil))
 }
