@@ -5,7 +5,6 @@ import "time"
 // Download представляет одну раздачу (папку). Это агрегат.
 type Download struct {
 	ID          string // Стабильный хеш, уникальный идентификатор раздачи
-	URL         string
 	Title       string // Заголовок раздачи из manifest.yml или имя папки
 	PageContent string // HTML-описание из description.md
 	PageHash    string // ETag

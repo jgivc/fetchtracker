@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"sync/atomic"
@@ -18,8 +19,9 @@ const (
 	KeyVersion1      = "v1"
 	KeyVersion2      = "v2"
 	KeyActiveVersion = "active_version" // STRING.
-	KeyDownloadMap   = "download_map"   // HASH. Maps the stable hash of a distribution to its path in the file system. HGET download_map:v1 {хеш_раздачи} -> /path/to/folder
-	KeyPageContent   = "page_content"   // HASH. {хеш_раздачи} -> HTML
+	KeyDownloadMap   = "download_map"   // HASH. download_map:ver:download_id file_id: file_path
+	// KeyDownloadMap   = "download_map"   // HASH. Maps the stable hash of a distribution to its path in the file system. HGET download_map:v1 {хеш_раздачи} -> /path/to/folder
+	KeyPageContent = "page_content" // HASH. {хеш_раздачи} -> HTML
 	// KeyDownloadVersion = "download_versions" // HASH. Maps the stable hash of a distribution to the hash of its page content (ETag). HGET download_versions:v1 {distribution_hash} -> {content_hash}
 	// KeyPageContent = "page_content" // STRING. Stores the full, ready-to-be-distributed HTML code of the distribution page. The key is an ETag.
 
@@ -152,8 +154,11 @@ func (r *downloadRepository) saveNewData(ctx context.Context, ver string, downlo
 
 	pipe := r.cl.Pipeline()
 	for _, download := range downloads {
-		pipe.HSet(ctx, getKey(KeyDownloadMap, ver), download.ID, download.SourcePath)
+		// pipe.HSet(ctx, getKey(KeyDownloadMap, ver), download.ID, download.SourcePath)
 		pipe.HSet(ctx, getKey(KeyPageContent, ver), download.ID, download.PageContent)
+		for _, file := range download.Files {
+			pipe.HSet(ctx, getKey(KeyDownloadMap, ver, download.ID), file.ID, file.SourcePath)
+		}
 		// pipe.HSet(ctx, getKey(KeyDownloadVersion, ver), download.ID, download.PageHash)
 		// pipe.Set(ctx, getKey(KeyPageContent, ver, download.PageHash), download.PageContent, 0)
 	}
@@ -240,6 +245,38 @@ func (r *downloadRepository) getVersions(ctx context.Context) (string, string, e
 // func (r *downloadRepository) IncFileCounter(id string) error {
 // 	panic("not implemented")
 // }
+
+func (r *downloadRepository) GetDownloadCounters(ctx context.Context, id string) (map[string]int, error) {
+	files, err := r.cl.HGetAll(ctx, getKey(KeyDownloadMap, r.getActiveVersion(), id)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get download files")
+	}
+
+	counters := make(map[string]int)
+	for fileID := range files {
+		counter, err := r.cl.Get(ctx, getKey(KeyFileStats, fileID)).Result()
+		if err != nil {
+			if !errors.Is(err, redis.Nil) {
+				r.log.Error("cannot get counter for file", slog.String("file_id", fileID), slog.Any("error", err))
+			} else {
+				counters[fileID] = 0
+			}
+
+			continue
+		}
+
+		c, err := strconv.Atoi(counter)
+		if err != nil {
+			r.log.Error("cannot convert counter to int", slog.String("file_id", fileID), slog.Any("error", err))
+
+			continue
+		}
+
+		counters[fileID] = c
+	}
+
+	return counters, nil
+}
 
 func (r *downloadRepository) getActiveVersion() string {
 	return r.ver.Load().(string)

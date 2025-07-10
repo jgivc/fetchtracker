@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -20,6 +21,10 @@ type PageService interface {
 
 type IndexService interface {
 	Index(ctx context.Context) error
+}
+
+type CounterService interface {
+	GetDownloadCounters(ctx context.Context, id string) (map[string]int, error)
 }
 
 func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
@@ -65,5 +70,30 @@ func NewPageHandler(srv PageService, log *slog.Logger) http.HandlerFunc {
 		}
 
 		w.Write([]byte(content))
+	}
+}
+
+func NewCounterHandler(srv CounterService, log *slog.Logger) http.HandlerFunc {
+	log = log.With(slog.String("handler", "CounterHandler"))
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if !idRegexp.MatchString(id) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		counters, err := srv.GetDownloadCounters(context.Background(), id)
+		if err != nil {
+			http.Error(w, "Cannot get page", http.StatusInternalServerError)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(counters); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }

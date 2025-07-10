@@ -45,10 +45,10 @@ type fsAdapter struct {
 }
 
 func NewFSAdapter(descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
-	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, tmplFileName, url, skipFiles, log)
+	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, tmplFileName, skipFiles, log)
 }
 
-func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
+func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
 	skipFilesMap := make(map[string]struct{})
 	skipFilesMap[descFileName] = struct{}{}
 	for _, file := range skipFiles {
@@ -63,7 +63,6 @@ func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, u
 
 	fsa := &fsAdapter{
 		fs:           fs,
-		url:          url,
 		descFileName: descFileName,
 		skipFiles:    skipFilesMap,
 		md:           md,
@@ -135,7 +134,6 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 
 	download.PageContent = buf.String()
 	download.PageHash = getIDFromString(&download.PageContent)
-	download.URL = a.url
 	// fmt.Println(download.PageContent)
 
 	return download, nil

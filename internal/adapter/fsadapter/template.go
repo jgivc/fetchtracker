@@ -107,7 +107,7 @@ const defaultTemplate = `
                                         <i class="bi bi-hourglass-split"></i>
                                     </span>
                                 </div>
-                                <a href="http://{{$.URL}}/file/{{$file.ID}}" 
+                                <a href="/file/{{$file.ID}}" 
                                    class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-download me-1"></i>
                                     Скачать
@@ -133,7 +133,7 @@ const defaultTemplate = `
         // Загрузка счетчиков скачиваний
         async function loadDownloadCounts() {
             try {
-                const response = await fetch('http://{{.URL}}/info/{{.ID}}');
+                const response = await fetch('/info/{{.ID}}');
                 const data = await response.json();
                 
                 // Обновляем счетчики для каждого файла
