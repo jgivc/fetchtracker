@@ -16,10 +16,12 @@ import (
 )
 
 const (
-	KeyVersion1      = "v1"
-	KeyVersion2      = "v2"
-	KeyActiveVersion = "active_version" // STRING.
-	KeyDownloadMap   = "download_map"   // HASH. download_map:ver:download_id file_id: file_path
+	KeyVersion1         = "v1"
+	KeyVersion2         = "v2"
+	KeyActiveVersion    = "active_version"     // STRING.
+	KeyDownloadMap      = "download_map"       // HASH. download_map:ver folder_id: folder_path
+	KeyFilesMap         = "files_map"          // HASH. files_map:ver file_id: file_path
+	KeyDownloadFilesMap = "download_files_map" // HASH. download_files_map:ver:folder_id file_id: file_path
 	// KeyDownloadMap   = "download_map"   // HASH. Maps the stable hash of a distribution to its path in the file system. HGET download_map:v1 {хеш_раздачи} -> /path/to/folder
 	KeyPageContent = "page_content" // HASH. {хеш_раздачи} -> HTML
 	// KeyDownloadVersion = "download_versions" // HASH. Maps the stable hash of a distribution to the hash of its page content (ETag). HGET download_versions:v1 {distribution_hash} -> {content_hash}
@@ -36,7 +38,7 @@ const (
 
 var (
 	// ClearableKeys = []string{KeyDownloadMap, KeyDownloadVersion, KeyPageContent}
-	ClearableKeys = []string{KeyDownloadMap, KeyPageContent}
+	ClearableKeys = []string{KeyDownloadMap, KeyFilesMap, KeyDownloadFilesMap, KeyPageContent}
 )
 
 type downloadRepository struct {
@@ -60,6 +62,35 @@ func NewDownloadRepository(cl *redis.Client, log *slog.Logger) (*downloadReposit
 	repo.ver.Store(ver)
 
 	return repo, nil
+}
+
+func (r *downloadRepository) Info(ctx context.Context) ([]*entity.ShareInfo, error) {
+	ver := r.getActiveVersion()
+
+	downloadMap, err := r.cl.HGetAll(ctx, getKey(KeyDownloadMap, ver)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get download map: %w", err)
+	}
+
+	if len(downloadMap) < 1 {
+		return nil, common.ErrNoDownloadsFoundError
+	}
+
+	infos := make([]*entity.ShareInfo, 0, len(downloadMap))
+	for id, path := range downloadMap {
+		files, err := r.cl.HGetAll(ctx, getKey(KeyFileStats, ver, id)).Result()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get download files: %w", err)
+		}
+
+		infos = append(infos, &entity.ShareInfo{
+			ID:         id,
+			SourcePath: path,
+			FileCount:  len(files),
+		})
+	}
+
+	return infos, nil
 }
 
 func (r *downloadRepository) Save(ctx context.Context, downloads []*entity.Download) error {
@@ -155,9 +186,13 @@ func (r *downloadRepository) saveNewData(ctx context.Context, ver string, downlo
 	pipe := r.cl.Pipeline()
 	for _, download := range downloads {
 		// pipe.HSet(ctx, getKey(KeyDownloadMap, ver), download.ID, download.SourcePath)
+		pipe.HSet(ctx, getKey(KeyDownloadMap, ver), download.ID, download.SourcePath)
 		pipe.HSet(ctx, getKey(KeyPageContent, ver), download.ID, download.PageContent)
+		keyFileMap := getKey(KeyFilesMap, ver)
+		keyDownloadMap := getKey(KeyDownloadFilesMap, ver, download.ID)
 		for _, file := range download.Files {
-			pipe.HSet(ctx, getKey(KeyDownloadMap, ver, download.ID), file.ID, file.SourcePath)
+			pipe.HSet(ctx, keyFileMap, file.ID, file.SourcePath)
+			pipe.HSet(ctx, keyDownloadMap, file.ID, file.SourcePath)
 		}
 		// pipe.HSet(ctx, getKey(KeyDownloadVersion, ver), download.ID, download.PageHash)
 		// pipe.Set(ctx, getKey(KeyPageContent, ver, download.PageHash), download.PageContent, 0)
@@ -238,16 +273,30 @@ func (r *downloadRepository) getVersions(ctx context.Context) (string, string, e
 	return KeyVersion1, KeyVersion2, nil
 }
 
-// func (r *downloadRepository) GetFilePath(id string) (string, error) {
-// 	panic("not implemented")
-// }
+func (r *downloadRepository) GetFilePath(ctx context.Context, id string) (string, error) {
+	path, err := r.cl.HGet(ctx, getKey(KeyFilesMap, r.getActiveVersion()), id).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", common.ErrFileNotFoundError
+		}
 
-// func (r *downloadRepository) IncFileCounter(id string) error {
-// 	panic("not implemented")
-// }
+		return "", fmt.Errorf("cannot get file %s path: %w", id, err)
+	}
+
+	return path, nil
+}
+
+func (r *downloadRepository) IncFileCounter(ctx context.Context, id string) (int64, error) {
+	counter, err := r.cl.HIncrBy(ctx, KeyFileStats, id, 1).Result()
+	if err != nil {
+		return 0, fmt.Errorf("cannot increment file %s counter: %w", id, err)
+	}
+
+	return counter, nil
+}
 
 func (r *downloadRepository) GetDownloadCounters(ctx context.Context, id string) (map[string]int, error) {
-	files, err := r.cl.HGetAll(ctx, getKey(KeyDownloadMap, r.getActiveVersion(), id)).Result()
+	files, err := r.cl.HGetAll(ctx, getKey(KeyDownloadFilesMap, r.getActiveVersion(), id)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get download files")
 	}

@@ -133,7 +133,7 @@ const defaultTemplate = `
         // Загрузка счетчиков скачиваний
         async function loadDownloadCounts() {
             try {
-                const response = await fetch('/info/{{.ID}}');
+                const response = await fetch('/stat/{{.ID}}');
                 const data = await response.json();
                 
                 // Обновляем счетчики для каждого файла

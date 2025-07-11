@@ -12,9 +12,8 @@ import (
 	"github.com/jgivc/fetchtracker/internal/config"
 	httphandler "github.com/jgivc/fetchtracker/internal/handler/http"
 	"github.com/jgivc/fetchtracker/internal/repository/download"
-	"github.com/jgivc/fetchtracker/internal/service/counter"
+	srvdownload "github.com/jgivc/fetchtracker/internal/service/download"
 	sindex "github.com/jgivc/fetchtracker/internal/service/index"
-	"github.com/jgivc/fetchtracker/internal/service/page"
 	"github.com/jgivc/fetchtracker/internal/storage/index"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -77,12 +76,13 @@ func (a *App) Start() {
 
 	// iSrv.Index(ctx)
 
-	pSrv := page.NewPageService(drepo, log)
-	cSrv := counter.NewCounterService(drepo, log)
+	// pSrv := page.NewPageService(drepo, log)
+	// cSrv := counter.NewCounterService(drepo, log)
+	dSrv := srvdownload.NewDownloadService(drepo, log)
 
-	http.Handle("GET /share/{id}/", httphandler.NewPageHandler(pSrv, log))
+	http.Handle("GET /share/{id}/", httphandler.NewPageHandler(dSrv, log))
+	http.Handle("GET /stat/{id}/", httphandler.NewCounterHandler(dSrv, log))
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
-	http.Handle("GET /info/{id}/", httphandler.NewCounterHandler(cSrv, log))
 
 	a.srv = &http.Server{
 		Addr: cfg.Listen,
