@@ -43,7 +43,7 @@ func (d *downloadService) Download(ctx context.Context, id string) (string, erro
 	return filePath, nil
 }
 
-func (d *downloadService) GetFileCounter(ctx context.Context, id string) (int64, error) {
+func (d *downloadService) IncFileCounter(ctx context.Context, id string) (int64, error) {
 	counter, err := d.repo.IncFileCounter(ctx, id)
 	if err != nil {
 		d.log.Error("Cannot increment file counter", slog.String("file_id", id), slog.Any("error", err))

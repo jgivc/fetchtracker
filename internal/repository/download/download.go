@@ -303,7 +303,7 @@ func (r *downloadRepository) GetDownloadCounters(ctx context.Context, id string)
 
 	counters := make(map[string]int)
 	for fileID := range files {
-		counter, err := r.cl.Get(ctx, getKey(KeyFileStats, fileID)).Result()
+		counter, err := r.cl.HGet(ctx, KeyFileStats, fileID).Result()
 		if err != nil {
 			if !errors.Is(err, redis.Nil) {
 				r.log.Error("cannot get counter for file", slog.String("file_id", fileID), slog.Any("error", err))

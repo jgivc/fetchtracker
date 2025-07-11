@@ -34,6 +34,11 @@ type InfoService interface {
 	Info(ctx context.Context) ([]*entity.ShareInfo, error)
 }
 
+type DownloadService interface {
+	Download(ctx context.Context, id string) (string, error)
+	IncFileCounter(ctx context.Context, id string) (int64, error)
+}
+
 func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
 	log = log.With(slog.String("handler", "IndexHandler"))
 
@@ -121,5 +126,42 @@ func NewInfoHandler(siteURL string, srv InfoService, log *slog.Logger) http.Hand
 		}
 
 		w.Write(buf.Bytes())
+	}
+}
+
+func NewDownloadHandler(hdrName string, srv DownloadService, log *slog.Logger) http.HandlerFunc {
+	log = log.With(slog.String("handler", "DownloadHandler"))
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if !idRegexp.MatchString(id) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		//FIXME: For errors you need to answer something to the user
+		path, err := srv.Download(context.Background(), id)
+		if err != nil {
+			switch {
+			case errors.Is(err, common.ErrFileNotFoundError):
+				http.Error(w, "Cannot find file", http.StatusNotFound)
+			default:
+				http.Error(w, "Cannot get file", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		counter, err := srv.IncFileCounter(context.Background(), id)
+		if err != nil {
+			http.Error(w, "Cannot get file", http.StatusInternalServerError)
+
+			return
+		}
+
+		log.Info("Download file", slog.String("id", id), slog.String("path", path), slog.Int64("counter", counter))
+
+		w.Header().Set(hdrName, path)
 	}
 }

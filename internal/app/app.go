@@ -57,20 +57,24 @@ func (a *App) Start() {
 		panic(err)
 	}
 
-	cfg := &config.IndexerConfig{
-		URL:          "http://127.0.0.1:10011",
-		Listen:       ":10011",
-		WorkDir:      "testdata/",
-		Workers:      2,
-		DescFileName: "description.yml",
+	cfg := &config.Config{
+		URL:            "http://127.0.0.1:10011",
+		Listen:         ":10011",
+		RedirectHeader: config.RedirectHeader,
+		IndexerConfig: config.IndexerConfig{
+			WorkDir:      "testdata/",
+			Workers:      2,
+			DescFileName: "description.yml",
+		},
+
 		// TemplateFileName: "/tmp/template.txt",
 	}
 
-	fsa, err := fsadapter.NewFSAdapter(cfg.DescFileName, cfg.TemplateFileName, cfg.URL, nil, log)
+	fsa, err := fsadapter.NewFSAdapter(cfg.IndexerConfig.DescFileName, cfg.IndexerConfig.TemplateFileName, cfg.URL, nil, log)
 	if err != nil {
 		panic(err)
 	}
-	store := index.NewIndexStorage(fsa, cfg, log)
+	store := index.NewIndexStorage(fsa, &cfg.IndexerConfig, log)
 
 	iSrv := sindex.NewIndexService(store, drepo, log)
 
@@ -80,9 +84,10 @@ func (a *App) Start() {
 	// cSrv := counter.NewCounterService(drepo, log)
 	dSrv := srvdownload.NewDownloadService(drepo, log)
 
-	http.Handle("GET /share/{id}/", httphandler.NewPageHandler(dSrv, log))
-	http.Handle("GET /stat/{id}/", httphandler.NewCounterHandler(dSrv, log))
+	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
+	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
 	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.URL, dSrv, log))
+	http.Handle("GET /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, dSrv, log))
 
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
 

@@ -1,8 +1,10 @@
 package config
 
+const (
+	RedirectHeader = "X-Accel-Redirect"
+)
+
 type IndexerConfig struct {
-	URL              string `yaml:"url"`
-	Listen           string `yaml:"listen"`
 	WorkDir          string `yaml:"work_dir"`
 	Workers          int    `yaml:"workers"`
 	DescFileName     string `yaml:"desc_filename"`
@@ -10,5 +12,8 @@ type IndexerConfig struct {
 }
 
 type Config struct {
-	IndexerConfig IndexerConfig `yaml:"indexer"`
+	URL            string        `yaml:"url"`
+	Listen         string        `yaml:"listen"`
+	RedirectHeader string        `yaml:"header"`
+	IndexerConfig  IndexerConfig `yaml:"indexer"`
 }
