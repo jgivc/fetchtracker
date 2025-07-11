@@ -1,14 +1,17 @@
 package httphandler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
 
 	"github.com/jgivc/fetchtracker/internal/common"
+	"github.com/jgivc/fetchtracker/internal/entity"
 )
 
 var (
@@ -25,6 +28,10 @@ type IndexService interface {
 
 type CounterService interface {
 	GetDownloadCounters(ctx context.Context, id string) (map[string]int, error)
+}
+
+type InfoService interface {
+	Info(ctx context.Context) ([]*entity.ShareInfo, error)
 }
 
 func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
@@ -95,5 +102,24 @@ func NewCounterHandler(srv CounterService, log *slog.Logger) http.HandlerFunc {
 		if err := json.NewEncoder(w).Encode(counters); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+	}
+}
+
+func NewInfoHandler(siteURL string, srv InfoService, log *slog.Logger) http.HandlerFunc {
+	log = log.With(slog.String("handler", "InfoHandler"))
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		infos, err := srv.Info(context.Background())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		buf := bytes.Buffer{}
+
+		for _, info := range infos {
+			buf.WriteString(fmt.Sprintf("%s -> %s/share/%s, files: %d\n", info.SourcePath, siteURL, info.ID, info.FileCount))
+		}
+
+		w.Write(buf.Bytes())
 	}
 }

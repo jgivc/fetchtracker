@@ -78,7 +78,7 @@ func (r *downloadRepository) Info(ctx context.Context) ([]*entity.ShareInfo, err
 
 	infos := make([]*entity.ShareInfo, 0, len(downloadMap))
 	for id, path := range downloadMap {
-		files, err := r.cl.HGetAll(ctx, getKey(KeyFileStats, ver, id)).Result()
+		files, err := r.cl.HGetAll(ctx, getKey(KeyDownloadFilesMap, ver, id)).Result()
 		if err != nil {
 			return nil, fmt.Errorf("cannot get download files: %w", err)
 		}

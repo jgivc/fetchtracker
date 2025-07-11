@@ -58,7 +58,7 @@ func (a *App) Start() {
 	}
 
 	cfg := &config.IndexerConfig{
-		URL:          "127.0.0.1",
+		URL:          "http://127.0.0.1:10011",
 		Listen:       ":10011",
 		WorkDir:      "testdata/",
 		Workers:      2,
@@ -82,6 +82,8 @@ func (a *App) Start() {
 
 	http.Handle("GET /share/{id}/", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/", httphandler.NewCounterHandler(dSrv, log))
+	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.URL, dSrv, log))
+
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
 
 	a.srv = &http.Server{
