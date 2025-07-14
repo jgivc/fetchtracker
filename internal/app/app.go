@@ -62,7 +62,7 @@ func (a *App) Start() {
 		Listen:         ":10011",
 		RedirectHeader: config.RedirectHeader,
 		IndexerConfig: config.IndexerConfig{
-			WorkDir:      "testdata/",
+			WorkDir:      "/tmp/testdata/",
 			Workers:      2,
 			DescFileName: "description.yml",
 		},
@@ -70,7 +70,7 @@ func (a *App) Start() {
 		// TemplateFileName: "/tmp/template.txt",
 	}
 
-	fsa, err := fsadapter.NewFSAdapter(cfg.IndexerConfig.DescFileName, cfg.IndexerConfig.TemplateFileName, cfg.URL, nil, log)
+	fsa, err := fsadapter.NewFSAdapter(cfg.IndexerConfig.WorkDir, cfg.IndexerConfig.DescFileName, cfg.IndexerConfig.TemplateFileName, cfg.URL, nil, log)
 	if err != nil {
 		panic(err)
 	}

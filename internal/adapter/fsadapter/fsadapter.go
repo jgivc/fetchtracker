@@ -36,6 +36,7 @@ type FolderDesc struct {
 
 type fsAdapter struct {
 	fs           afero.Fs
+	rootDor      string
 	descFileName string
 	url          string
 	skipFiles    map[string]struct{}
@@ -44,11 +45,11 @@ type fsAdapter struct {
 	log          *slog.Logger
 }
 
-func NewFSAdapter(descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
-	return NewFSAdapterWithFS(afero.NewOsFs(), descFileName, tmplFileName, skipFiles, log)
+func NewFSAdapter(rootDir string, descFileName string, tmplFileName string, url string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
+	return NewFSAdapterWithFS(afero.NewOsFs(), rootDir, descFileName, tmplFileName, skipFiles, log)
 }
 
-func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
+func NewFSAdapterWithFS(fs afero.Fs, rootDir string, descFileName string, tmplFileName string, skipFiles []string, log *slog.Logger) (*fsAdapter, error) {
 	skipFilesMap := make(map[string]struct{})
 	skipFilesMap[descFileName] = struct{}{}
 	for _, file := range skipFiles {
@@ -63,6 +64,7 @@ func NewFSAdapterWithFS(fs afero.Fs, descFileName string, tmplFileName string, s
 
 	fsa := &fsAdapter{
 		fs:           fs,
+		rootDor:      rootDir,
 		descFileName: descFileName,
 		skipFiles:    skipFilesMap,
 		md:           md,
@@ -152,6 +154,8 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 				Name:       entry.Name(),
 				SourcePath: filepath.Join(folderPath, entry.Name()),
 			}
+
+			fDesc.URL = strings.Replace(fDesc.SourcePath, a.rootDor, "/", 1)
 
 			if _, exists := a.skipFiles[fDesc.Name]; exists {
 				a.log.Info("Skip file", slog.String("path", fDesc.SourcePath))

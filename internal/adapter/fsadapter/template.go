@@ -17,8 +17,7 @@ package fsadapter
 // </html>
 // `
 
-const defaultTemplate = `
-<!DOCTYPE html>
+const defaultTemplate = `<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -130,31 +129,105 @@ const defaultTemplate = `
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
+        let updateInterval;
+        let isPageVisible = true;
+        
         // Загрузка счетчиков скачиваний
         async function loadDownloadCounts() {
             try {
-                const response = await fetch('/stat/{{.ID}}');
+                const response = await fetch('/stat/{{.ID}}/');
                 const data = await response.json();
                 
                 // Обновляем счетчики для каждого файла
                 document.querySelectorAll('.download-count').forEach(element => {
                     const fileId = element.getAttribute('data-file-id');
-                    const count = data[fileId] || 0;
-                    element.innerHTML = count;
-                    element.className = count > 0 ? 'badge bg-success' : 'badge bg-secondary';
+                    const newCount = data[fileId] || 0;
+                    const currentCount = parseInt(element.textContent) || 0;
+                    
+                    // Анимация при изменении счетчика
+                    if (newCount !== currentCount) {
+                        element.style.transition = 'all 0.3s ease';
+                        element.style.transform = 'scale(1.1)';
+                        setTimeout(() => {
+                            element.style.transform = 'scale(1)';
+                        }, 300);
+                    }
+                    
+                    element.innerHTML = newCount;
+                    element.className = newCount > 0 ? 'badge bg-success download-count' : 'badge bg-secondary download-count';
                 });
+                
+                // Обновляем время последнего обновления
+                updateLastUpdateTime();
+                
             } catch (error) {
                 console.error('Ошибка загрузки счетчиков:', error);
-                // В случае ошибки показываем 0
+                // В случае ошибки показываем индикатор
                 document.querySelectorAll('.download-count').forEach(element => {
-                    element.innerHTML = '0';
-                    element.className = 'badge bg-secondary';
+                    if (!element.textContent || element.textContent === '0') {
+                        element.innerHTML = '—';
+                        element.className = 'badge bg-warning download-count';
+                    }
                 });
             }
         }
 
-        // Загружаем счетчики при загрузке страницы
-        document.addEventListener('DOMContentLoaded', loadDownloadCounts);
+        // Обновление времени последнего обновления
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            
+            let statusElement = document.getElementById('update-status');
+            if (!statusElement) {
+                statusElement = document.createElement('div');
+                statusElement.id = 'update-status';
+                statusElement.className = 'text-muted small mt-2 text-center';
+                document.querySelector('.card-header').appendChild(statusElement);
+            }
+            
+            statusElement.innerHTML = "<i class=\"bi bi-arrow-clockwise me-1\"></i>Последнее обновление: ${timeString}";
+        }
+
+        // Управление автообновлением
+        function startAutoUpdate(intervalSeconds = 10) {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+            
+            updateInterval = setInterval(() => {
+                if (isPageVisible) {
+                    loadDownloadCounts();
+                }
+            }, intervalSeconds * 1000);
+        }
+
+        function stopAutoUpdate() {
+            console.log('eee');
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        // Отслеживание видимости страницы
+        document.addEventListener('visibilitychange', () => {
+            isPageVisible = !document.hidden;
+            if (isPageVisible) {
+                // Страница стала видимой - обновляем счетчики
+                loadDownloadCounts();
+            }
+        });
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDownloadCounts();
+            startAutoUpdate(30); // Обновление каждые 30 секунд
+        });
+
+        // Остановка автообновления при уходе со страницы
+        window.addEventListener('beforeunload', () => {
+            stopAutoUpdate();
+        });
     </script>
 </body>
 </html>

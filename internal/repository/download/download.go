@@ -191,8 +191,10 @@ func (r *downloadRepository) saveNewData(ctx context.Context, ver string, downlo
 		keyFileMap := getKey(KeyFilesMap, ver)
 		keyDownloadMap := getKey(KeyDownloadFilesMap, ver, download.ID)
 		for _, file := range download.Files {
-			pipe.HSet(ctx, keyFileMap, file.ID, file.SourcePath)
-			pipe.HSet(ctx, keyDownloadMap, file.ID, file.SourcePath)
+			// pipe.HSet(ctx, keyFileMap, file.ID, file.SourcePath)
+			// pipe.HSet(ctx, keyDownloadMap, file.ID, file.SourcePath)
+			pipe.HSet(ctx, keyFileMap, file.ID, file.URL)
+			pipe.HSet(ctx, keyDownloadMap, file.ID, file.URL)
 		}
 		// pipe.HSet(ctx, getKey(KeyDownloadVersion, ver), download.ID, download.PageHash)
 		// pipe.Set(ctx, getKey(KeyPageContent, ver, download.PageHash), download.PageContent, 0)
@@ -240,6 +242,11 @@ func (r *downloadRepository) clearOldData(ctx context.Context, ver string) error
 			if cursor == 0 {
 				break // No more keys to scan
 			}
+		}
+
+		_, err := r.cl.Del(ctx, getKey(key, ver)).Result()
+		if err != nil {
+			return fmt.Errorf("error deleting keys: %w", err)
 		}
 
 		log.Info("Clear keys", slog.String("pattern", pattern), slog.Int64("key_count", deletedCount))
