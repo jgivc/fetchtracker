@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"sync/atomic"
 
@@ -33,7 +34,8 @@ const (
 	KeyEmpty     = ""
 	KeySeparator = ":"
 
-	ScanCount = 1000
+	ScanCount                 = 1000
+	defaultDownloadExpiration = 24 * time.Hour
 )
 
 var (
@@ -293,6 +295,15 @@ func (r *downloadRepository) GetFilePath(ctx context.Context, id string) (string
 	return path, nil
 }
 
+func (r *downloadRepository) UserExists(ctx context.Context, id string) (bool, error) {
+	res, err := r.cl.SetNX(ctx, getKey(KeyUniqueDownload, id), "1", defaultDownloadExpiration).Result()
+	if err != nil {
+		return false, fmt.Errorf("cannot check user exists")
+	}
+
+	return !res, nil
+}
+
 func (r *downloadRepository) IncFileCounter(ctx context.Context, id string) (int64, error) {
 	counter, err := r.cl.HIncrBy(ctx, KeyFileStats, id, 1).Result()
 	if err != nil {
@@ -305,7 +316,7 @@ func (r *downloadRepository) IncFileCounter(ctx context.Context, id string) (int
 func (r *downloadRepository) GetDownloadCounters(ctx context.Context, id string) (map[string]int, error) {
 	files, err := r.cl.HGetAll(ctx, getKey(KeyDownloadFilesMap, r.getActiveVersion(), id)).Result()
 	if err != nil {
-		return nil, fmt.Errorf("cannot get download files")
+		return nil, fmt.Errorf("cannot get download files: %w", err)
 	}
 
 	counters := make(map[string]int)

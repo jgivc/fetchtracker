@@ -2,8 +2,6 @@ package fsadapter
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io"
@@ -15,7 +13,10 @@ import (
 	"strings"
 	"time"
 
+	_ "embed"
+
 	"github.com/jgivc/fetchtracker/internal/entity"
+	"github.com/jgivc/fetchtracker/internal/util"
 	"github.com/spf13/afero"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
@@ -27,6 +28,9 @@ const (
 	mimeTypeUnknown = "application/octet-stream"
 	templateName    = "tmpl"
 )
+
+//go:embed template.html
+var defaultTemplate string
 
 type FolderDesc struct {
 	Title   string            `yaml:"title"`
@@ -110,7 +114,7 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 	}
 
 	download := &entity.Download{
-		ID:          getIDFromString(&folderPath),
+		ID:          util.GetIDFromString(&folderPath),
 		Title:       fd.Title,
 		PageContent: descr,
 		Enabled:     fd.Enabled,
@@ -135,7 +139,7 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 	}
 
 	download.PageContent = buf.String()
-	download.PageHash = getIDFromString(&download.PageContent)
+	download.PageHash = util.GetIDFromString(&download.PageContent)
 	// fmt.Println(download.PageContent)
 
 	return download, nil
@@ -163,7 +167,7 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 				continue
 			}
 
-			fDesc.ID = getIDFromString(&fDesc.SourcePath)
+			fDesc.ID = util.GetIDFromString(&fDesc.SourcePath)
 
 			stat, err := a.fs.Stat(fDesc.SourcePath)
 			if err != nil {
@@ -258,11 +262,4 @@ func (a *fsAdapter) fileExists(path string) bool {
 
 func (a *fsAdapter) buildDownloadPage(desc string, download *entity.Download) (string, error) {
 	panic("not implemented")
-}
-
-func getIDFromString(str *string) string {
-	hasher := sha1.New()
-	hasher.Write([]byte(*str))
-
-	return hex.EncodeToString(hasher.Sum(nil))
 }

@@ -9,13 +9,25 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jgivc/fetchtracker/internal/common"
 	"github.com/jgivc/fetchtracker/internal/entity"
+	"github.com/jgivc/fetchtracker/internal/util"
+)
+
+const (
+	downloadCookieName = "download_token"
+	hdrUserAgent       = "User-Agent"
+
+	prefixIDCookie      = "cookie"
+	prefixIDFingerpring = "fingerprint" // User-Agent + ip
 )
 
 var (
-	idRegexp = regexp.MustCompile(`^[a-f\d]{40}$`)
+	idRegexp     = regexp.MustCompile(`^[a-f\d]{40}$`)
+	cookieRegexp = regexp.MustCompile(`^[a-f\d\-]{36}$`)
 )
 
 type PageService interface {
@@ -36,7 +48,7 @@ type InfoService interface {
 
 type DownloadService interface {
 	Download(ctx context.Context, id string) (string, error)
-	IncFileCounter(ctx context.Context, id string) (int64, error)
+	IncFileCounter(ctx context.Context, userID, fileID string) (int64, error)
 }
 
 func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
@@ -61,6 +73,26 @@ func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
 func NewPageHandler(srv PageService, log *slog.Logger) http.HandlerFunc {
 	log = log.With(slog.String("handler", "PageHandler"))
 
+	getUserID := func(r *http.Request) string {
+		cookie, err := r.Cookie(downloadCookieName)
+		if err == nil {
+			if cookieRegexp.MatchString(cookie.Value) {
+				log.Info("Cookie found", slog.String("cookie", cookie.Value))
+				return cookie.Value
+			}
+		}
+
+		if err != nil && err != http.ErrNoCookie {
+			log.Error("Cannot get user cookie", slog.Any("error", err))
+
+		}
+
+		uid := uuid.New().String()
+		log.Info("Set new cookie", slog.String("cookie", uid))
+
+		return uid
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if !idRegexp.MatchString(id) {
@@ -80,6 +112,18 @@ func NewPageHandler(srv PageService, log *slog.Logger) http.HandlerFunc {
 
 			return
 		}
+
+		uid := getUserID(r)
+		cookie := http.Cookie{
+			Name:     downloadCookieName,
+			Path:     "/",
+			Value:    uid,
+			Expires:  time.Now().Add(24 * time.Hour * 365), // Cookie expires in 1 year
+			HttpOnly: true,                                 // Prevents JavaScript access (XSS protection)
+			Secure:   true,                                 // Only send over HTTPS
+			SameSite: http.SameSiteStrictMode,
+		}
+		http.SetCookie(w, &cookie)
 
 		w.Write([]byte(content))
 	}
@@ -129,19 +173,49 @@ func NewInfoHandler(siteURL string, srv InfoService, log *slog.Logger) http.Hand
 	}
 }
 
-func NewDownloadHandler(hdrName string, srv DownloadService, log *slog.Logger) http.HandlerFunc {
+func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadService, log *slog.Logger) http.HandlerFunc {
 	log = log.With(slog.String("handler", "DownloadHandler"))
 
+	getUserID := func(r *http.Request) string {
+		cookie, err := r.Cookie(downloadCookieName)
+		if err == nil {
+			if cookieRegexp.MatchString(cookie.Value) {
+				log.Info("Cookie found", slog.String("cookie", cookie.Value))
+				return fmt.Sprintf("%s:%s", prefixIDCookie, cookie.Value)
+			}
+		}
+
+		if err != nil {
+			fmt.Println("GGG", err)
+		}
+
+		if err != nil && err != http.ErrNoCookie {
+			log.Error("Cannot get user cookie", slog.Any("error", err))
+
+		}
+
+		fp := fmt.Sprintf("%s:%s", r.Header.Get(hdrRealIP), r.Header.Get(hdrUserAgent))
+		uid := util.GetIDFromString(&fp)
+
+		log.Info("Cannot find cookie", slog.String("fingerprint", uid))
+
+		return fmt.Sprintf("%s:%s", prefixIDFingerpring, uid)
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		if !idRegexp.MatchString(id) {
+
+		fileID := r.PathValue("id")
+		if !idRegexp.MatchString(fileID) {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 
 			return
 		}
 
+		log = log.With("remote_addr", r.Header.Get(hdrRealIP), slog.String("file_id", fileID))
+		log.Info("New download request")
+
 		//FIXME: For errors you need to answer something to the user
-		path, err := srv.Download(context.Background(), id)
+		path, err := srv.Download(context.Background(), fileID)
 		if err != nil {
 			switch {
 			case errors.Is(err, common.ErrFileNotFoundError):
@@ -153,15 +227,22 @@ func NewDownloadHandler(hdrName string, srv DownloadService, log *slog.Logger) h
 			return
 		}
 
-		counter, err := srv.IncFileCounter(context.Background(), id)
+		uid := getUserID(r)
+		fmt.Println("AAA", uid)
+
+		counter, err := srv.IncFileCounter(context.Background(), getUserID(r), fileID)
 		if err != nil {
 			http.Error(w, "Cannot get file", http.StatusInternalServerError)
 
 			return
 		}
 
-		log.Info("Download file", slog.String("id", id), slog.String("path", path), slog.Int64("counter", counter))
+		log.Info("Download file", slog.String("id", fileID), slog.String("path", path), slog.Int64("counter", counter))
 
-		w.Header().Set(hdrName, path)
+		w.Header().Set(hdrRedirect, path)
 	}
+}
+
+func getUserID(r *http.Request) string {
+	panic("not implemented")
 }

@@ -1,23 +1,4 @@
-package fsadapter
-
-// const defaultTemplate = `<html>
-// <head>
-// 	<title>{{.Title}}</title>
-// </head>
-// <body>
-// 	<h1>{{.Title}}</h1>
-// 	{{.PageContent}}
-
-// 	<ul>
-// 	{{range .Files}}
-// 		<li><a href="http://example.com/file/{{.ID}}">{{.Name}}</a></li>
-// 	{{end}}
-// 	</ul>
-// </body>
-// </html>
-// `
-
-const defaultTemplate = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -106,7 +87,7 @@ const defaultTemplate = `<!DOCTYPE html>
                                         <i class="bi bi-hourglass-split"></i>
                                     </span>
                                 </div>
-                                <a href="/file/{{$file.ID}}" 
+                                <a href="/file/{{$file.ID}}/" 
                                    class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-download me-1"></i>
                                     Скачать
@@ -185,11 +166,14 @@ const defaultTemplate = `<!DOCTYPE html>
                 document.querySelector('.card-header').appendChild(statusElement);
             }
             
-            statusElement.innerHTML = "<i class=\"bi bi-arrow-clockwise me-1\"></i>Последнее обновление: ${timeString}";
+            statusElement.innerHTML = `
+                <i class="bi bi-arrow-clockwise me-1"></i>
+                Последнее обновление: ${timeString}
+            `;
         }
 
         // Управление автообновлением
-        function startAutoUpdate(intervalSeconds = 10) {
+        function startAutoUpdate(intervalSeconds = 30) {
             if (updateInterval) {
                 clearInterval(updateInterval);
             }
@@ -202,7 +186,6 @@ const defaultTemplate = `<!DOCTYPE html>
         }
 
         function stopAutoUpdate() {
-            console.log('eee');
             if (updateInterval) {
                 clearInterval(updateInterval);
                 updateInterval = null;
@@ -215,6 +198,10 @@ const defaultTemplate = `<!DOCTYPE html>
             if (isPageVisible) {
                 // Страница стала видимой - обновляем счетчики
                 loadDownloadCounts();
+                // Перезапускаем автообновление если оно было остановлено
+                if (!updateInterval) {
+                    startAutoUpdate(30);
+                }
             }
         });
 
@@ -224,11 +211,17 @@ const defaultTemplate = `<!DOCTYPE html>
             startAutoUpdate(30); // Обновление каждые 30 секунд
         });
 
-        // Остановка автообновления при уходе со страницы
-        window.addEventListener('beforeunload', () => {
-            stopAutoUpdate();
+        // Обработка кликов по ссылкам скачивания
+        document.addEventListener('click', (e) => {
+            const downloadLink = e.target.closest('a[href*="/file/"]');
+            if (downloadLink) {
+                // Через небольшую задержку обновляем счетчики после клика
+                setTimeout(() => {
+                    loadDownloadCounts();
+                }, 1000);
+            }
         });
     </script>
 </body>
 </html>
-`
+

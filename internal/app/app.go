@@ -61,6 +61,7 @@ func (a *App) Start() {
 		URL:            "http://127.0.0.1:10011",
 		Listen:         ":10011",
 		RedirectHeader: config.RedirectHeader,
+		RealIPHeader:   config.RealIPHeader,
 		IndexerConfig: config.IndexerConfig{
 			WorkDir:      "/tmp/testdata/",
 			Workers:      2,
@@ -87,7 +88,7 @@ func (a *App) Start() {
 	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
 	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.URL, dSrv, log))
-	http.Handle("GET /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, dSrv, log))
+	http.Handle("GET /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, cfg.RealIPHeader, dSrv, log))
 
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
 
@@ -96,7 +97,7 @@ func (a *App) Start() {
 	}
 
 	go func() {
-		log.Info("Start lisnen", slog.String("addr", cfg.Listen))
+		log.Info("Start listen", slog.String("addr", cfg.Listen))
 
 		if err := a.srv.ListenAndServe(); err != nil {
 			log.Error("Could not serve", slog.String("listen_addr", cfg.Listen), slog.Any("error", err))
