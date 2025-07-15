@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jgivc/fetchtracker/internal/common"
+	"github.com/jgivc/fetchtracker/internal/config"
 	"github.com/jgivc/fetchtracker/internal/entity"
 	"github.com/jgivc/fetchtracker/internal/util"
 )
@@ -173,7 +174,7 @@ func NewInfoHandler(siteURL string, srv InfoService, log *slog.Logger) http.Hand
 	}
 }
 
-func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadService, log *slog.Logger) http.HandlerFunc {
+func NewDownloadHandler(cfg *config.HandlerConfig, srv DownloadService, log *slog.Logger) http.HandlerFunc {
 	log = log.With(slog.String("handler", "DownloadHandler"))
 
 	getUserID := func(r *http.Request) string {
@@ -190,7 +191,7 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 
 		}
 
-		fp := fmt.Sprintf("%s:%s", r.Header.Get(hdrRealIP), r.Header.Get(hdrUserAgent))
+		fp := fmt.Sprintf("%s:%s", r.Header.Get(cfg.RealIPHeader), r.Header.Get(hdrUserAgent))
 		uid := util.GetIDFromString(&fp)
 
 		// log.Info("Cannot find cookie", slog.String("fingerprint", uid))
@@ -207,7 +208,7 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 			return
 		}
 
-		log = log.With("remote_addr", r.Header.Get(hdrRealIP), slog.String("file_id", fileID))
+		log = log.With("remote_addr", r.Header.Get(cfg.RealIPHeader), slog.String("file_id", fileID))
 		log.Info("New download request")
 
 		//FIXME: For errors you need to answer something to the user
@@ -232,6 +233,6 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 
 		log.Info("Download file", slog.String("id", fileID), slog.String("path", path), slog.Int64("counter", counter))
 
-		w.Header().Set(hdrRedirect, path)
+		w.Header().Set(cfg.RedirectHeader, path)
 	}
 }

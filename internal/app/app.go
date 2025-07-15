@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/jgivc/fetchtracker/internal/adapter/fsadapter"
@@ -15,7 +14,6 @@ import (
 	srvdownload "github.com/jgivc/fetchtracker/internal/service/download"
 	sindex "github.com/jgivc/fetchtracker/internal/service/index"
 	"github.com/jgivc/fetchtracker/internal/storage/index"
-	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -31,64 +29,57 @@ func New(cfgPath string) *App {
 }
 
 func (a *App) Start() {
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	cfg := config.MustLoad(a.cfgPath)
 
-	err := godotenv.Load()
+	opt, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
 		panic(err)
 	}
 
-	db := os.Getenv("REDIS_DB")
-	dbNum, _ := strconv.Atoi(db)
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_ADDR"),
-		Password: os.Getenv("REDIS_PASSWORD"), // no password set
-		DB:       dbNum,                       // use default DB
-	})
-
+	rdb := redis.NewClient(opt)
 	ctx := context.Background()
 	_, err = rdb.Ping(ctx).Result()
 	if err != nil {
 		panic(err)
 	}
 
+	lo := &slog.HandlerOptions{}
+	switch cfg.LogLevel {
+	case config.LogLevelInfo:
+		lo.Level = slog.LevelInfo
+	case config.LogLevelWarn:
+		lo.Level = slog.LevelWarn
+	case config.LogLevelError:
+		lo.Level = slog.LevelError
+	case config.LogLevelDebug:
+		lo.Level = slog.LevelDebug
+	default:
+		panic("unknown log level")
+	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, lo))
+
 	drepo, err := download.NewDownloadRepository(rdb, log)
 	if err != nil {
 		panic(err)
 	}
 
-	cfg := &config.Config{
-		URL:            "http://127.0.0.1",
-		Listen:         ":10011",
-		RedirectHeader: config.RedirectHeader,
-		RealIPHeader:   config.RealIPHeader,
-		IndexerConfig: config.IndexerConfig{
-			WorkDir:      "/tmp/testdata/",
-			Workers:      2,
-			DescFileName: "description.yml",
-		},
-
-		// TemplateFileName: "/tmp/template.txt",
-	}
-
-	fsa, err := fsadapter.NewFSAdapter(cfg.IndexerConfig.WorkDir, cfg.IndexerConfig.DescFileName, cfg.IndexerConfig.TemplateFileName, cfg.URL, nil, log)
+	fsa, err := fsadapter.NewFSAdapter(
+		cfg.IndexerConfig.WorkDir,
+		cfg.IndexerConfig.DescFileName,
+		cfg.IndexerConfig.TemplateFileName,
+		cfg.HandlerConfig.URL, nil, log)
 	if err != nil {
 		panic(err)
 	}
+
 	store := index.NewIndexStorage(fsa, &cfg.IndexerConfig, log)
-
 	iSrv := sindex.NewIndexService(store, drepo, log)
-
-	// iSrv.Index(ctx)
-
-	// pSrv := page.NewPageService(drepo, log)
-	// cSrv := counter.NewCounterService(drepo, log)
 	dSrv := srvdownload.NewDownloadService(drepo, log)
 
 	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
-	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.URL, dSrv, log))
-	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, cfg.RealIPHeader, dSrv, log))
+	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.HandlerConfig.URL, dSrv, log))
+	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(&cfg.HandlerConfig, dSrv, log))
 
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
 

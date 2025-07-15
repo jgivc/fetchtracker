@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/yuin/goldmark v1.7.12
 	go.abhg.dev/goldmark/frontmatter v0.2.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
