@@ -88,7 +88,7 @@ func (a *App) Start() {
 	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
 	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.URL, dSrv, log))
-	http.Handle("GET /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, cfg.RealIPHeader, dSrv, log))
+	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(cfg.RedirectHeader, cfg.RealIPHeader, dSrv, log))
 
 	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
 

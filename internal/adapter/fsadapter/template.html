@@ -87,11 +87,12 @@
                                         <i class="bi bi-hourglass-split"></i>
                                     </span>
                                 </div>
-                                <a href="/file/{{$file.ID}}/" 
-                                   class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-download me-1"></i>
-                                    Скачать
-                                </a>
+                                <form method="POST" action="/file/{{$file.ID}}/" style="display: inline;">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-download me-1"></i>
+                                        Скачать
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -116,7 +117,10 @@
         // Загрузка счетчиков скачиваний
         async function loadDownloadCounts() {
             try {
-                const response = await fetch('/stat/{{.ID}}/');
+                // Добавляем timestamp для обхода кеша
+                // const timestamp = new Date().getTime();
+                // const response = await fetch(`/stat/{{.ID}}/?t=${timestamp}`);
+                const response = await fetch(`/stat/{{.ID}}/`);
                 const data = await response.json();
                 
                 // Обновляем счетчики для каждого файла
@@ -211,10 +215,10 @@
             startAutoUpdate(30); // Обновление каждые 30 секунд
         });
 
-        // Обработка кликов по ссылкам скачивания
+        // Обработка кликов по кнопкам скачивания
         document.addEventListener('click', (e) => {
-            const downloadLink = e.target.closest('a[href*="/file/"]');
-            if (downloadLink) {
+            const downloadButton = e.target.closest('button[type="submit"]');
+            if (downloadButton && downloadButton.closest('form[action*="/file/"]')) {
                 // Через небольшую задержку обновляем счетчики после клика
                 setTimeout(() => {
                     loadDownloadCounts();
@@ -224,4 +228,3 @@
     </script>
 </body>
 </html>
-
