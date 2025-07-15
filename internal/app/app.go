@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,7 +20,9 @@ import (
 
 type App struct {
 	cfgPath string
+	cfg     *config.Config
 	srv     *http.Server
+	indexer *sindex.IndexerService
 }
 
 func New(cfgPath string) *App {
@@ -29,9 +32,9 @@ func New(cfgPath string) *App {
 }
 
 func (a *App) Start() {
-	cfg := config.MustLoad(a.cfgPath)
+	a.cfg = config.MustLoad(a.cfgPath)
 
-	opt, err := redis.ParseURL(cfg.RedisURL)
+	opt, err := redis.ParseURL(a.cfg.RedisURL)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +47,7 @@ func (a *App) Start() {
 	}
 
 	lo := &slog.HandlerOptions{}
-	switch cfg.LogLevel {
+	switch a.cfg.LogLevel {
 	case config.LogLevelInfo:
 		lo.Level = slog.LevelInfo
 	case config.LogLevelWarn:
@@ -64,37 +67,57 @@ func (a *App) Start() {
 	}
 
 	fsa, err := fsadapter.NewFSAdapter(
-		cfg.IndexerConfig.WorkDir,
-		cfg.IndexerConfig.DescFileName,
-		cfg.IndexerConfig.TemplateFileName,
-		cfg.HandlerConfig.URL, nil, log)
+		a.cfg.IndexerConfig.WorkDir,
+		a.cfg.IndexerConfig.DescFileName,
+		a.cfg.IndexerConfig.TemplateFileName,
+		a.cfg.HandlerConfig.URL, nil, log)
 	if err != nil {
 		panic(err)
 	}
 
-	store := index.NewIndexStorage(fsa, &cfg.IndexerConfig, log)
-	iSrv := sindex.NewIndexService(store, drepo, log)
+	store := index.NewIndexStorage(fsa, &a.cfg.IndexerConfig, log)
+	a.indexer = sindex.NewIndexService(store, drepo, log)
 	dSrv := srvdownload.NewDownloadService(drepo, log)
 
 	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
-	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(&cfg.HandlerConfig, dSrv, log))
+	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(&a.cfg.HandlerConfig, dSrv, log))
 
-	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, cfg.HandlerConfig.URL, log))
+	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(a.indexer, a.cfg.HandlerConfig.URL, log))
 
 	a.srv = &http.Server{
-		Addr: cfg.Listen,
+		Addr: a.cfg.Listen,
 	}
 
 	go func() {
-		log.Info("Start listen", slog.String("addr", cfg.Listen))
+		log.Info("Start listen", slog.String("addr", a.cfg.Listen))
 
 		if err := a.srv.ListenAndServe(); err != nil {
-			log.Error("Could not serve", slog.String("listen_addr", cfg.Listen), slog.Any("error", err))
+			log.Error("Could not serve", slog.String("listen_addr", a.cfg.Listen), slog.Any("error", err))
 			os.Exit(2)
 		}
 
 	}()
+}
+
+func (a *App) Index() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	fmt.Println("Building...")
+
+	infos, err := a.indexer.Index(ctx)
+	if err != nil {
+		fmt.Printf("Cannot build index: %s\n", err)
+
+		return
+	}
+
+	for i, info := range infos {
+		fmt.Printf("%d. %s -> %s/share/%s, files: %d\n", i+1, info.SourcePath, a.cfg.HandlerConfig.URL, info.ID, info.FileCount)
+	}
+
+	fmt.Println("Done.")
 }
 
 func (a *App) Stop() {

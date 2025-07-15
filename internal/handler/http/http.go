@@ -66,8 +66,8 @@ func NewIndexHandler(srv IndexService, siteURL string, log *slog.Logger) http.Ha
 		}
 
 		buf := bytes.Buffer{}
-		for _, info := range infos {
-			buf.WriteString(fmt.Sprintf("%s -> %s/share/%s, files: %d\r\n", info.SourcePath, siteURL, info.ID, info.FileCount))
+		for i, info := range infos {
+			buf.WriteString(fmt.Sprintf("%d. %s -> %s/share/%s, files: %d\r\n", i+1, info.SourcePath, siteURL, info.ID, info.FileCount))
 		}
 		w.Write(buf.Bytes())
 		w.Write([]byte("\r\nDone."))
