@@ -42,7 +42,8 @@
             <div class="text-center">
                 <span class="badge bg-success fs-6">
                     <i class="bi bi-files me-1"></i>
-                    {{len .Files}} файлов
+                    {{ $lenFiles := len .Files}}
+                    {{$lenFiles}} {{ $lenFiles | plural }}
                 </span>
             </div>
         </div>
@@ -114,6 +115,20 @@
         let updateInterval;
         let isPageVisible = true;
         
+        // function plural(forms, n) {
+        //     let idx;
+        //     // @see http://docs.translatehouse.org/projects/localization-guide/en/latest/l10n/pluralforms.html
+        //     if (n % 10 === 1 && n % 100 !== 11) {
+        //         idx = 0; // one
+        //     } else if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) {
+        //         idx = 1; // few
+        //     } else {
+        //         idx = 2; // many
+        //     }
+            
+        //     return forms[idx] || '';
+        // }
+
         // Загрузка счетчиков скачиваний
         async function loadDownloadCounts() {
             try {

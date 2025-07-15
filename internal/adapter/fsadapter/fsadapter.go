@@ -32,6 +32,8 @@ const (
 //go:embed template.html
 var defaultTemplate string
 
+var filesPlural = []string{"файл", "файла", "файлов"}
+
 type FolderDesc struct {
 	Title   string            `yaml:"title"`
 	Enabled bool              `yaml:"enabled"`
@@ -81,7 +83,7 @@ func NewFSAdapterWithFS(fs afero.Fs, rootDir string, descFileName string, tmplFi
 	)
 
 	if tmplFileName == "" {
-		tmpl, err = template.New(templateName).Parse(defaultTemplate)
+		tmpl, err = template.New(templateName).Funcs(template.FuncMap{"plural": plural}).Parse(defaultTemplate)
 	} else {
 		tmpl, err = template.New(templateName).ParseFiles(tmplFileName)
 	}
@@ -260,6 +262,25 @@ func (a *fsAdapter) fileExists(path string) bool {
 	return false
 }
 
-func (a *fsAdapter) buildDownloadPage(desc string, download *entity.Download) (string, error) {
-	panic("not implemented")
+func plural(n int) string {
+	var idx int
+	// @see http://docs.translatehouse.org/projects/localization-guide/en/latest/l10n/pluralforms.html
+
+	switch {
+	case n%10 == 1 && n%100 != 11:
+	case (n%10 >= 2 && n%10 <= 4 && (n%100 < 10 || n%100 >= 20)):
+		idx = 1
+	default:
+		idx = 2
+	}
+
+	if idx >= len(filesPlural) {
+		return ""
+	}
+
+	return filesPlural[idx]
 }
+
+// func (a *fsAdapter) buildDownloadPage(desc string, download *entity.Download) (string, error) {
+// 	panic("not implemented")
+// }
