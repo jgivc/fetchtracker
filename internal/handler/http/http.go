@@ -36,15 +36,11 @@ type PageService interface {
 }
 
 type IndexService interface {
-	Index(ctx context.Context) error
+	Index(ctx context.Context) ([]*entity.ShareInfo, error)
 }
 
 type CounterService interface {
 	GetDownloadCounters(ctx context.Context, id string) (map[string]int, error)
-}
-
-type InfoService interface {
-	Info(ctx context.Context) ([]*entity.ShareInfo, error)
 }
 
 type DownloadService interface {
@@ -52,11 +48,13 @@ type DownloadService interface {
 	IncFileCounter(ctx context.Context, userID, fileID string) (int64, error)
 }
 
-func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
+func NewIndexHandler(srv IndexService, siteURL string, log *slog.Logger) http.HandlerFunc {
 	log = log.With(slog.String("handler", "IndexHandler"))
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := srv.Index(context.Background()); err != nil {
+		w.Write([]byte("Building...\r\n\r\n"))
+		infos, err := srv.Index(context.Background())
+		if err != nil {
 			switch {
 			case errors.Is(err, common.ErrIndexingProcessHasAlreadyStarted):
 				http.Error(w, "Index process has already started", http.StatusConflict)
@@ -67,7 +65,12 @@ func NewIndexHandler(srv IndexService, log *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		w.Write([]byte("done"))
+		buf := bytes.Buffer{}
+		for _, info := range infos {
+			buf.WriteString(fmt.Sprintf("%s -> %s/share/%s, files: %d\r\n", info.SourcePath, siteURL, info.ID, info.FileCount))
+		}
+		w.Write(buf.Bytes())
+		w.Write([]byte("\r\nDone."))
 	}
 }
 
@@ -152,25 +155,6 @@ func NewCounterHandler(srv CounterService, log *slog.Logger) http.HandlerFunc {
 		if err := json.NewEncoder(w).Encode(counters); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-	}
-}
-
-func NewInfoHandler(siteURL string, srv InfoService, log *slog.Logger) http.HandlerFunc {
-	log = log.With(slog.String("handler", "InfoHandler"))
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		infos, err := srv.Info(context.Background())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		buf := bytes.Buffer{}
-
-		for _, info := range infos {
-			buf.WriteString(fmt.Sprintf("%s -> %s/share/%s, files: %d\n", info.SourcePath, siteURL, info.ID, info.FileCount))
-		}
-
-		w.Write(buf.Bytes())
 	}
 }
 

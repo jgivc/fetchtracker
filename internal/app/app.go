@@ -78,10 +78,9 @@ func (a *App) Start() {
 
 	http.Handle("GET /share/{id}/{$}", httphandler.NewPageHandler(dSrv, log))
 	http.Handle("GET /stat/{id}/{$}", httphandler.NewCounterHandler(dSrv, log))
-	http.Handle("GET /info/{$}", httphandler.NewInfoHandler(cfg.HandlerConfig.URL, dSrv, log))
 	http.Handle("POST /file/{id}/{$}", httphandler.NewDownloadHandler(&cfg.HandlerConfig, dSrv, log))
 
-	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, log))
+	http.Handle("GET /index/{$}", httphandler.NewIndexHandler(iSrv, cfg.HandlerConfig.URL, log))
 
 	a.srv = &http.Server{
 		Addr: cfg.Listen,

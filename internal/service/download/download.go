@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-
-	"github.com/jgivc/fetchtracker/internal/entity"
 )
 
 const (
@@ -16,7 +14,6 @@ type DownloadRepository interface {
 	GetFilePath(ctx context.Context, id string) (string, error)
 	UserExists(ctx context.Context, id string) (bool, error)
 	IncFileCounter(ctx context.Context, id string) (int64, error)
-	Info(ctx context.Context) ([]*entity.ShareInfo, error)
 	GetPage(ctx context.Context, id string) (string, error)
 	GetDownloadCounters(ctx context.Context, id string) (map[string]int, error)
 }
@@ -66,17 +63,6 @@ func (d *downloadService) IncFileCounter(ctx context.Context, userID, fileID str
 
 	//FIXME: If the user exists, then the counter is incorrect.
 	return 0, nil
-}
-
-func (d *downloadService) Info(ctx context.Context) ([]*entity.ShareInfo, error) {
-	infos, err := d.repo.Info(ctx)
-	if err != nil {
-		d.log.Error("Cannot get file path", slog.Any("error", err))
-
-		return nil, fmt.Errorf("cannot get download info: %w", err)
-	}
-
-	return infos, nil
 }
 
 func (d *downloadService) GetPage(ctx context.Context, id string) (string, error) {
