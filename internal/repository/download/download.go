@@ -19,17 +19,17 @@ import (
 const (
 	KeyVersion1         = "v1"
 	KeyVersion2         = "v2"
-	KeyActiveVersion    = "active_version"     // STRING.
-	KeyDownloadMap      = "download_map"       // HASH. download_map:ver folder_id: folder_path
-	KeyFilesMap         = "files_map"          // HASH. files_map:ver file_id: file_path
-	KeyDownloadFilesMap = "download_files_map" // HASH. download_files_map:ver:folder_id file_id: file_path
+	KeyActiveVersion    = "av"  // STRING.
+	KeyDownloadMap      = "dm"  // HASH. download_map:ver folder_id: folder_path
+	KeyFilesMap         = "fm"  // HASH. files_map:ver file_id: file_path
+	KeyDownloadFilesMap = "dfm" // HASH. download_files_map:ver:folder_id file_id: file_path
 	// KeyDownloadMap   = "download_map"   // HASH. Maps the stable hash of a distribution to its path in the file system. HGET download_map:v1 {хеш_раздачи} -> /path/to/folder
-	KeyPageContent = "page_content" // HASH. {хеш_раздачи} -> HTML
+	KeyPageContent = "pc" // HASH. {хеш_раздачи} -> HTML
 	// KeyDownloadVersion = "download_versions" // HASH. Maps the stable hash of a distribution to the hash of its page content (ETag). HGET download_versions:v1 {distribution_hash} -> {content_hash}
 	// KeyPageContent = "page_content" // STRING. Stores the full, ready-to-be-distributed HTML code of the distribution page. The key is an ETag.
 
-	KeyFileStats      = "file_stats"      // HASH. Key storage of statistics. Maps a stable hash of a file to its counter. Allows atomic increment. HINCRBY file_stats {file_hash} 1
-	KeyUniqueDownload = "unique_download" // STRING. Used to cut off duplicate downloads. The key is the user ID (cookie/fingerprint). Set via SETNX with EX (TTL).
+	KeyFileStats      = "fs" // HASH. Key storage of statistics. Maps a stable hash of a file to its counter. Allows atomic increment. HINCRBY file_stats {file_hash} 1
+	KeyUniqueDownload = "dl" // STRING. Used to cut off duplicate downloads. The key is the user ID (cookie/fingerprint). Set via SETNX with EX (TTL).
 
 	KeyEmpty     = ""
 	KeySeparator = ":"

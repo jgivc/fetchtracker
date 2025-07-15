@@ -58,7 +58,7 @@ func (a *App) Start() {
 	}
 
 	cfg := &config.Config{
-		URL:            "http://127.0.0.1:10011",
+		URL:            "http://127.0.0.1",
 		Listen:         ":10011",
 		RedirectHeader: config.RedirectHeader,
 		RealIPHeader:   config.RealIPHeader,

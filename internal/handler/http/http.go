@@ -21,8 +21,8 @@ const (
 	downloadCookieName = "download_token"
 	hdrUserAgent       = "User-Agent"
 
-	prefixIDCookie      = "cookie"
-	prefixIDFingerpring = "fingerprint" // User-Agent + ip
+	prefixIDCookie      = "c" // cookie
+	prefixIDFingerpring = "f" // User-Agent + ip
 )
 
 var (
@@ -180,13 +180,9 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 		cookie, err := r.Cookie(downloadCookieName)
 		if err == nil {
 			if cookieRegexp.MatchString(cookie.Value) {
-				log.Info("Cookie found", slog.String("cookie", cookie.Value))
+				// log.Info("Cookie found", slog.String("cookie", cookie.Value))
 				return fmt.Sprintf("%s:%s", prefixIDCookie, cookie.Value)
 			}
-		}
-
-		if err != nil {
-			fmt.Println("GGG", err)
 		}
 
 		if err != nil && err != http.ErrNoCookie {
@@ -197,7 +193,7 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 		fp := fmt.Sprintf("%s:%s", r.Header.Get(hdrRealIP), r.Header.Get(hdrUserAgent))
 		uid := util.GetIDFromString(&fp)
 
-		log.Info("Cannot find cookie", slog.String("fingerprint", uid))
+		// log.Info("Cannot find cookie", slog.String("fingerprint", uid))
 
 		return fmt.Sprintf("%s:%s", prefixIDFingerpring, uid)
 	}
@@ -227,10 +223,7 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 			return
 		}
 
-		uid := getUserID(r)
-		fmt.Println("AAA", uid)
-
-		counter, err := srv.IncFileCounter(context.Background(), getUserID(r), fileID)
+		counter, err := srv.IncFileCounter(context.Background(), fmt.Sprintf("%s:%s", getUserID(r), fileID), fileID)
 		if err != nil {
 			http.Error(w, "Cannot get file", http.StatusInternalServerError)
 
@@ -241,8 +234,4 @@ func NewDownloadHandler(hdrRedirect string, hdrRealIP string, srv DownloadServic
 
 		w.Header().Set(hdrRedirect, path)
 	}
-}
-
-func getUserID(r *http.Request) string {
-	panic("not implemented")
 }
