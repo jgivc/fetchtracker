@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	downloadCookieName = "download_token"
-	hdrUserAgent       = "User-Agent"
+	downloadCookieName    = "download_token"
+	hdrUserAgent          = "User-Agent"
+	hdrContentDisposition = "Content-Disposition"
 
 	prefixIDCookie      = "c" // cookie
 	prefixIDFingerpring = "f" // User-Agent + ip
@@ -217,6 +218,7 @@ func NewDownloadHandler(cfg *config.HandlerConfig, srv DownloadService, log *slo
 
 		log.Info("Download file", slog.String("id", fileID), slog.String("path", path), slog.Int64("counter", counter))
 
+		w.Header().Set(hdrContentDisposition, "attachment") // Download instead view (for .pdf, etc)
 		w.Header().Set(cfg.RedirectHeader, path)
 	}
 }

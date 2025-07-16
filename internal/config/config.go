@@ -18,17 +18,22 @@ const (
 	defaultLogLevel       = LogLevelInfo
 	defaultWorkDir        = "/tmp/testdata"
 	defaultWorkers        = 2
-	defaultDescFileName   = "description.yml"
+	defaultDescFileName   = "description.md"
 	defaultRedisURL       = "http://127.0.0.1/0"
 	defaultRedirectHeader = "X-Accel-Redirect"
 	defaultRealIPHeader   = "X-Real-IP"
 )
 
+var (
+	defaultSkipFiles = []string{defaultDescFileName}
+)
+
 type IndexerConfig struct {
-	WorkDir          string `yaml:"work_dir"`
-	Workers          int    `yaml:"workers"`
-	DescFileName     string `yaml:"desc_filename"`
-	TemplateFileName string `yaml:"template_filename"`
+	WorkDir          string   `yaml:"work_dir"`
+	Workers          int      `yaml:"workers"`
+	DescFileName     string   `yaml:"desc_filename"`
+	TemplateFileName string   `yaml:"template_filename"`
+	SkipFiles        []string `yaml:"skip_files"`
 }
 
 type HandlerConfig struct {
@@ -104,6 +109,10 @@ func (c *Config) SetDefaults() {
 
 	if c.IndexerConfig.DescFileName == "" {
 		c.IndexerConfig.DescFileName = defaultDescFileName
+	}
+
+	if len(c.IndexerConfig.SkipFiles) < 1 {
+		c.IndexerConfig.SkipFiles = defaultSkipFiles
 	}
 
 	// HandlerConfig
