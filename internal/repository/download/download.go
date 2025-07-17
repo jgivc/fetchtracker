@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -397,9 +398,11 @@ func (r *downloadRepository) DownloadCounterIterator(ctx context.Context) (iter.
 
 			pipe := r.cl.Pipeline()
 			for fileID, filePath := range filesMap {
+				fileName := filepath.Base(filePath)
 				fileCounters = append(fileCounters, entity.FileCounter{
 					ID:         fileID,
-					SourcePath: filePath,
+					Name:       fileName,
+					SourcePath: filepath.Join(folderPath, fileName),
 				})
 				pipe.HGet(ctx, KeyFileStats, fileID)
 			}

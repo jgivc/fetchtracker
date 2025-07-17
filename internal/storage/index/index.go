@@ -20,7 +20,6 @@ type FSAdapter interface {
 }
 
 type indexStorage struct {
-	// running atomic.Bool
 	adapter FSAdapter
 	cfg     *config.IndexerConfig
 	log     *slog.Logger
@@ -35,11 +34,6 @@ func NewIndexStorage(adapter FSAdapter, cfg *config.IndexerConfig, log *slog.Log
 }
 
 func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
-	// if !i.running.CompareAndSwap(false, true) {
-	// 	return nil, common.ErrIndexingProcessHasAlreadyStarted
-	// }
-	// defer i.running.Store(false)
-
 	entries, err := os.ReadDir(i.cfg.WorkDir)
 	if err != nil {
 		return nil, err
