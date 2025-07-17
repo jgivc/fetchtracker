@@ -2,9 +2,14 @@ package index
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
+	"os"
+	"sync/atomic"
 
+	"github.com/jgivc/fetchtracker/internal/common"
 	"github.com/jgivc/fetchtracker/internal/entity"
 )
 
@@ -15,12 +20,14 @@ type DownloadStorage interface {
 type DownloadRepository interface {
 	Save(ctx context.Context, downloads []*entity.Download) error
 	Info(ctx context.Context) ([]*entity.ShareInfo, error)
+	DownloadCounterIterator(ctx context.Context) (iter.Seq2[*entity.DownloadCounters, error], error)
 }
 
 type IndexerService struct {
-	store DownloadStorage
-	repo  DownloadRepository
-	log   *slog.Logger
+	running atomic.Bool
+	store   DownloadStorage
+	repo    DownloadRepository
+	log     *slog.Logger
 }
 
 func NewIndexService(store DownloadStorage, repo DownloadRepository, log *slog.Logger) *IndexerService {
@@ -31,7 +38,59 @@ func NewIndexService(store DownloadStorage, repo DownloadRepository, log *slog.L
 	}
 }
 
+func (i *IndexerService) DumpCounters(ctx context.Context, path string) error {
+	if !i.running.CompareAndSwap(false, true) {
+		return common.ErrIndexingProcessHasAlreadyStarted
+	}
+	defer i.running.Store(false)
+
+	i.log.Info("Dump counters")
+
+	w, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("cannot create dump file: %w", err)
+	}
+	defer w.Close()
+
+	it, err := i.repo.DownloadCounterIterator(ctx)
+	if err != nil {
+		return fmt.Errorf("cannot get iterator: %w", err)
+	}
+
+	encoder := json.NewEncoder(w)
+	// encoder.SetIndent("", "  ")
+
+	w.Write([]byte("[\n"))
+
+	first := true
+	for dc, err := range it {
+		if err != nil {
+			return fmt.Errorf("cannot get counters: %w", err)
+		}
+
+		if !first {
+			w.Write([]byte(","))
+		}
+		first = false
+
+		if err2 := encoder.Encode(dc); err2 != nil {
+			return fmt.Errorf("cannot encode struct: %w", err2)
+		}
+	}
+
+	w.Write([]byte("]"))
+
+	return nil
+}
+
 func (i *IndexerService) Index(ctx context.Context) ([]*entity.ShareInfo, error) {
+	if !i.running.CompareAndSwap(false, true) {
+		return nil, common.ErrIndexingProcessHasAlreadyStarted
+	}
+	defer i.running.Store(false)
+
+	i.log.Info("Start index process")
+
 	downloads, err := i.store.Scan(ctx)
 	if err != nil {
 		i.log.Error("Cannot scan", slog.Any("error", err))

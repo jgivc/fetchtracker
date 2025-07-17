@@ -23,6 +23,7 @@ const (
 	defaultRedisURL       = "http://127.0.0.1/0"
 	defaultRedirectHeader = "X-Accel-Redirect"
 	defaultRealIPHeader   = "X-Real-IP"
+	defaultDumpFilename   = "/tmp/fetchtracker_counters.json"
 )
 
 type IndexerConfig struct {
@@ -31,6 +32,7 @@ type IndexerConfig struct {
 	DescFileName     string   `yaml:"desc_filename"`
 	TemplateFileName string   `yaml:"template_filename"`
 	SkipFiles        []string `yaml:"skip_files"`
+	DumpFileName     string   `yaml:"dump_filename"`
 }
 
 type HandlerConfig struct {
@@ -114,6 +116,10 @@ func (c *Config) SetDefaults() {
 		if !slices.Contains[[]string, string](c.IndexerConfig.SkipFiles, c.IndexerConfig.DescFileName) {
 			c.IndexerConfig.SkipFiles = append(c.IndexerConfig.SkipFiles, c.IndexerConfig.DescFileName)
 		}
+	}
+
+	if c.IndexerConfig.DumpFileName == "" {
+		c.IndexerConfig.DumpFileName = defaultDumpFilename
 	}
 
 	// HandlerConfig

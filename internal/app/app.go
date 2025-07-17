@@ -18,11 +18,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	indexTimeout = 5 * time.Second
+	dumpTimeout  = 5 * time.Second
+)
+
 type App struct {
 	cfgPath string
 	cfg     *config.Config
 	srv     *http.Server
 	indexer *sindex.IndexerService
+	log     *slog.Logger
 }
 
 func New(cfgPath string) *App {
@@ -60,6 +66,7 @@ func (a *App) Start() {
 		panic("unknown log level")
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, lo))
+	a.log = log
 
 	drepo, err := download.NewDownloadRepository(rdb, log)
 	if err != nil {
@@ -100,8 +107,17 @@ func (a *App) Start() {
 	}()
 }
 
+func (a *App) Dump() {
+	ctx, cancel := context.WithTimeout(context.Background(), dumpTimeout)
+	defer cancel()
+
+	if err := a.indexer.DumpCounters(ctx, a.cfg.IndexerConfig.DumpFileName); err != nil {
+		a.log.Error("Cannot dump counters", slog.Any("aeeoe", err))
+	}
+}
+
 func (a *App) Index() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), indexTimeout)
 	defer cancel()
 
 	fmt.Println("Building...")

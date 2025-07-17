@@ -6,9 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 
-	"github.com/jgivc/fetchtracker/internal/common"
 	"github.com/jgivc/fetchtracker/internal/config"
 	"github.com/jgivc/fetchtracker/internal/entity"
 )
@@ -22,7 +20,7 @@ type FSAdapter interface {
 }
 
 type indexStorage struct {
-	running atomic.Bool
+	// running atomic.Bool
 	adapter FSAdapter
 	cfg     *config.IndexerConfig
 	log     *slog.Logger
@@ -37,10 +35,10 @@ func NewIndexStorage(adapter FSAdapter, cfg *config.IndexerConfig, log *slog.Log
 }
 
 func (i *indexStorage) Scan(ctx context.Context) ([]*entity.Download, error) {
-	if !i.running.CompareAndSwap(false, true) {
-		return nil, common.ErrIndexingProcessHasAlreadyStarted
-	}
-	defer i.running.Store(false)
+	// if !i.running.CompareAndSwap(false, true) {
+	// 	return nil, common.ErrIndexingProcessHasAlreadyStarted
+	// }
+	// defer i.running.Store(false)
 
 	entries, err := os.ReadDir(i.cfg.WorkDir)
 	if err != nil {
