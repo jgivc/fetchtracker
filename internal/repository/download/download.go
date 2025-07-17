@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -361,6 +362,81 @@ func (r *downloadRepository) GetPage(ctx context.Context, id string) (string, er
 	}
 
 	return str, nil
+}
+
+func (r *downloadRepository) DownloadCounterIterator(ctx context.Context) (iter.Seq2[*entity.DownloadCounters, error], error) {
+	ver := r.getActiveVersion()
+	folders, err := r.cl.HGetAll(ctx, getKey(KeyDownloadMap, ver)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("cannot getfolder list: %w", err)
+	}
+
+	return func(yield func(*entity.DownloadCounters, error) bool) {
+		for folderID, folderPath := range folders {
+			dc := &entity.DownloadCounters{
+				ID:         folderID,
+				SourcePath: folderPath,
+			}
+
+			filesMap, err := r.cl.HGetAll(ctx, getKey(KeyDownloadFilesMap, ver, folderID)).Result()
+			if err != nil {
+				yield(nil, fmt.Errorf("cannot get folder files: %w", err))
+
+				return
+			}
+
+			if len(filesMap) < 1 {
+				if !yield(dc, nil) {
+					return
+				}
+
+				continue
+			}
+
+			fileCounters := make([]entity.FileCounter, 0, len(filesMap))
+
+			pipe := r.cl.Pipeline()
+			for fileID, filePath := range filesMap {
+				fileCounters = append(fileCounters, entity.FileCounter{
+					ID:         fileID,
+					SourcePath: filePath,
+				})
+				pipe.HGet(ctx, KeyFileStats, fileID)
+			}
+
+			cmds, err := pipe.Exec(ctx)
+			if err != nil {
+				yield(nil, fmt.Errorf("cannot exec pipe: %w", err))
+
+				return
+			}
+
+			for i, cmd := range cmds {
+				var counter int64
+				val, err := cmd.(*redis.StringCmd).Result()
+				if err != nil {
+					if err != redis.Nil {
+						r.log.Error("cannot get file counter", slog.Any("error", err))
+					}
+				} else {
+					counter, err = strconv.ParseInt(val, 10, 64)
+					if err != nil {
+						r.log.Error("Cannot convert counter value to string", slog.Any("error", err))
+						counter = 0
+					}
+				}
+
+				fileCounters[i].Counter = counter
+
+			}
+
+			dc.Files = fileCounters
+
+			if !yield(dc, nil) {
+				return
+			}
+		}
+	}, nil
 }
 
 func getKey(keys ...string) string {

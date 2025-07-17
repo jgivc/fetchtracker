@@ -13,3 +13,9 @@ type Download struct {
 	SourcePath  string    // Внутренний путь к папке на диске
 	CreatedAt   time.Time // Время создания (первой индексации)
 }
+
+type DownloadCounters struct {
+	ID         string        `yaml:"id"`
+	SourcePath string        `yaml:"path"`
+	Files      []FileCounter `yaml:"files"`
+}

@@ -10,3 +10,10 @@ type File struct {
 	Size        int64  // Размер файла в байтах
 	MIMEType    string // MIME-тип файла
 }
+
+type FileCounter struct {
+	ID         string `yaml:"id"`
+	Name       string `yaml:"name"`
+	SourcePath string `yaml:"path"`
+	Counter    int64  `yaml:"counter"`
+}

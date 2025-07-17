@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v2"
 )
@@ -22,10 +23,6 @@ const (
 	defaultRedisURL       = "http://127.0.0.1/0"
 	defaultRedirectHeader = "X-Accel-Redirect"
 	defaultRealIPHeader   = "X-Real-IP"
-)
-
-var (
-	defaultSkipFiles = []string{defaultDescFileName}
 )
 
 type IndexerConfig struct {
@@ -112,7 +109,11 @@ func (c *Config) SetDefaults() {
 	}
 
 	if len(c.IndexerConfig.SkipFiles) < 1 {
-		c.IndexerConfig.SkipFiles = defaultSkipFiles
+		c.IndexerConfig.SkipFiles = []string{c.IndexerConfig.DescFileName}
+	} else {
+		if !slices.Contains[[]string, string](c.IndexerConfig.SkipFiles, c.IndexerConfig.DescFileName) {
+			c.IndexerConfig.SkipFiles = append(c.IndexerConfig.SkipFiles, c.IndexerConfig.DescFileName)
+		}
 	}
 
 	// HandlerConfig
