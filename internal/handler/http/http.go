@@ -193,7 +193,7 @@ func NewDownloadHandler(cfg *config.HandlerConfig, srv DownloadService, log *slo
 			return
 		}
 
-		log = log.With("remote_addr", r.Header.Get(cfg.RealIPHeader), slog.String("file_id", fileID))
+		log := log.With("remote_addr", r.Header.Get(cfg.RealIPHeader), slog.String("file_id", fileID))
 		log.Info("New download request")
 
 		//FIXME: For errors you need to answer something to the user
