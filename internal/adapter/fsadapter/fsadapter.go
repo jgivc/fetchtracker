@@ -161,7 +161,8 @@ func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 				SourcePath: filepath.Join(folderPath, entry.Name()),
 			}
 
-			fDesc.URL = strings.Replace(fDesc.SourcePath, a.rootDor, "/", 1)
+			fDesc.URL = filepath.Join("/", filepath.Base(a.rootDor), strings.Replace(fDesc.SourcePath, a.rootDor, "/", 1))
+			fmt.Println("AAA", fDesc)
 
 			if _, exists := a.skipFiles[fDesc.Name]; exists {
 				a.log.Info("Skip file", slog.String("path", fDesc.SourcePath))
