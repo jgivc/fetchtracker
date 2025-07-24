@@ -14,25 +14,39 @@ const (
 	LogLevelError = "error"
 	LogLevelDebug = "debug"
 
-	defaultListen         = ":10011"
-	defaultURL            = "http://127.0.0.1"
-	defaultLogLevel       = LogLevelInfo
-	defaultWorkDir        = "/tmp/testdata"
-	defaultWorkers        = 2
-	defaultDescFileName   = "description.md"
-	defaultRedisURL       = "http://127.0.0.1/0"
-	defaultRedirectHeader = "X-Accel-Redirect"
-	defaultRealIPHeader   = "X-Real-IP"
-	defaultDumpFilename   = "/tmp/fetchtracker_counters.json"
+	defaultListen            = ":10011"
+	defaultURL               = "http://127.0.0.1"
+	defaultLogLevel          = LogLevelInfo
+	defaultWorkDir           = "/tmp/testdata"
+	defaultWorkers           = 2
+	defaultIndexPageFileName = "index.html"
+	defaultTemplateFileName  = "template.html"
+	defaultDescFileName      = "description.md"
+	defaultRedisURL          = "http://127.0.0.1/0"
+	defaultRedirectHeader    = "X-Accel-Redirect"
+	defaultRealIPHeader      = "X-Real-IP"
+	defaultDumpFilename      = "/tmp/fetchtracker_counters.json"
 )
 
 type IndexerConfig struct {
-	WorkDir          string   `yaml:"work_dir"`
-	Workers          int      `yaml:"workers"`
-	DescFileName     string   `yaml:"desc_filename"`
-	TemplateFileName string   `yaml:"template_filename"`
-	SkipFiles        []string `yaml:"skip_files"`
-	DumpFileName     string   `yaml:"dump_filename"`
+	WorkDir              string   `yaml:"work_dir"`
+	Workers              int      `yaml:"workers"`
+	IndexPageFileName    string   `yaml:"index_filename"` // If it is present in the shared folder, the page is generated only based on it. Template and markdown files are ignored.
+	DescFileName         string   `yaml:"desc_filename"`
+	TemplateFileName     string   `yaml:"template_filename"`
+	DefaultIndexTemplate string   `yaml:"index_template"`
+	DefaultMDTemplate    string   `yaml:"md_template"`
+	SkipFiles            []string `yaml:"skip_files"`
+	DumpFileName         string   `yaml:"dump_filename"`
+}
+
+type FSAdapterConfig struct {
+	WorkDir           string
+	URL               string
+	IndexPageFileName string
+	DescFileName      string
+	TemplateFileName  string
+	SkipFiles         []string
 }
 
 type HandlerConfig struct {
@@ -104,6 +118,14 @@ func (c *Config) SetDefaults() {
 
 	if c.IndexerConfig.Workers == 0 {
 		c.IndexerConfig.Workers = defaultWorkers
+	}
+
+	if c.IndexerConfig.TemplateFileName == "" {
+		c.IndexerConfig.TemplateFileName = defaultTemplateFileName
+	}
+
+	if c.IndexerConfig.IndexPageFileName == "" {
+		c.IndexerConfig.IndexPageFileName = defaultIndexPageFileName
 	}
 
 	if c.IndexerConfig.DescFileName == "" {
