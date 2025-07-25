@@ -22,6 +22,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -119,38 +120,6 @@ func NewFSAdapterWithFS(fs afero.Fs, cfg *config.FSAdapterConfig, log *slog.Logg
 		log:       log,
 	}
 
-	// var err error
-
-	// tmpl := template.New(templateName)
-	// content := defaultTemplateContent
-
-	// if fsa.fileExists(cfg.TemplateFileName) {
-	// 	content, err = afero.ReadFile(fs, cfg.TemplateFileName)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("cannot read template file: %s: %w", cfg.TemplateFileName, err)
-	// 	}
-	// }
-
-	// tmpl, err = tmpl.Parse(string(content))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("cannot parse template content: %w", err)
-	// }
-
-	// indexContent := defaultIndexContent
-	// if fsa.fileExists(cfg.IndexPageFileName) {
-	// 	indexContent, err = afero.ReadFile(fs, cfg.IndexPageFileName)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("cannot read index file: %s: %w", cfg.IndexPageFileName, err)
-	// 	}
-	// }
-
-	// tmpl, err = tmpl.New(templateIndexName).Parse(string(indexContent))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("cannot parse index content: %w", err)
-	// }
-
-	// fsa.tmpl = tmpl
-
 	return fsa, nil
 }
 
@@ -195,70 +164,10 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 	}
 
 	return download, nil
-
-	// if a.fileExists(a.cfg.IndexPageFileName) {
-	// 	content, err := a.buildIndexPage(&PageContextIndex{URL: a.cfg.URL, Download: download})
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("cannot build index page: %w", err)
-	// 	}
-
-	// 	download.PageContent = content
-	// 	download.PageHash = util.GetIDFromString(&content)
-
-	// 	return download, nil
-	// }
-
-	// if !a.fileExists(a.cfg.DescFileName) {
-	// 	// Use default index file
-	// 	tmpl := a.tmpl.Lookup(templateIndexName)
-	// 	if tmpl == nil {
-	// 		return nil, fmt.Errorf("cannot get default index template")
-	// 	}
-
-	// 	content, err := buildTemplate(tmpl, &PageContextIndex{URL: a.cfg.URL, Download: download})
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("cannot build default index page: %w", err)
-	// 	}
-
-	// 	download.PageContent = content
-	// 	download.PageHash = util.GetIDFromString(&content)
-
-	// 	return download, nil
-
-	// }
-
-	// // Use template + markdown
-	// fm, err := a.getFrontmatter()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("cannot get frontmatter: %w", err)
-	// }
-
-	// if len(fm.Files) > 0 {
-	// 	for i := range files {
-	// 		if fileDesc, exists := fm.Files[files[i].Name]; exists {
-	// 			files[i].Description = fileDesc
-	// 		}
-	// 	}
-	// }
-
-	// tmpl := a.tmpl.Lookup(templateName)
-	// if a.fileExists(a.cfg.TemplateFileName) {
-	// 	tmpl, err = template.ParseFiles(a.cfg.TemplateFileName)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("cannot load template file %s: %w", a.cfg.TemplateFileName, err)
-	// 	}
-	// }
-
-	// if tmpl == nil {
-	// 	return nil, fmt.Errorf("cannot get default template")
-	// }
-
-	// return nil, nil
-
 }
 
 func (a *fsAdapter) parseIndex(folderPath string, download *entity.Download) error {
-	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.IndexPageFileName), defaultIndexContent, nil)
+	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.IndexPageFileName), defaultIndexContent, download.Files)
 	if err != nil {
 		return fmt.Errorf("cannot get index template: %w", err)
 	}
@@ -275,10 +184,15 @@ func (a *fsAdapter) parseIndex(folderPath string, download *entity.Download) err
 }
 
 func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) error {
-	fm, err := a.getFrontmatter()
+	mdFileName := filepath.Join(folderPath, a.cfg.DescFileName)
+
+	fm, mdData, err := a.getFrontmatter(mdFileName)
 	if err != nil {
 		return fmt.Errorf("cannot get frontmatter: %w", err)
 	}
+
+	download.Title = fm.Title
+	download.Enabled = fm.Enabled
 
 	if len(fm.Files) > 0 {
 		for i := range download.Files {
@@ -289,7 +203,7 @@ func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) 
 	}
 
 	// Template for prebuilding markdown. Replace file link `{{ file "filename.txt" }}` to html.
-	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, download.Files)
+	tmpl, err := a.getTemplate("", mdData, download.Files)
 	if err != nil {
 		return fmt.Errorf("cannot get markdown template: %w", err)
 	}
@@ -305,9 +219,15 @@ func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) 
 	}
 
 	download.PageContent = content // What was in mardown
+
+	tmpl, err = a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, download.Files)
+	if err != nil {
+		return fmt.Errorf("cannot get page template: %w", err)
+	}
+
 	content, err = buildTemplate(tmpl, &PageContext{URL: a.cfg.URL, Download: download, Frontmatter: fm})
 	if err != nil {
-		return fmt.Errorf("cannot prebuild markdown: %w", err)
+		return fmt.Errorf("cannot build page: %w", err)
 	}
 
 	download.PageContent = content
@@ -332,8 +252,29 @@ func (a *fsAdapter) getParseMode(folderPath string) ParseMode {
 	return ParseModeMdDefaultTemplate
 }
 
-func (a *fsAdapter) getFrontmatter() (*Frontmatter, error) {
-	panic("not implemented")
+func (a *fsAdapter) getFrontmatter(fileName string) (*Frontmatter, []byte, error) {
+	content, err := afero.ReadFile(a.fs, fileName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot read md file: %w", err)
+	}
+
+	var fm Frontmatter
+	str := string(content)
+
+	if !strings.HasPrefix(str, "---\n") {
+		return &fm, []byte(str), nil
+	}
+
+	parts := strings.SplitN(str, "---\n", 3)
+	if len(parts) < 3 {
+		return &fm, []byte(str), nil
+	}
+
+	if err := yaml.Unmarshal([]byte(parts[1]), &fm); err != nil {
+		return nil, nil, fmt.Errorf("cannot unmarshal frontmatter: %w", err)
+	}
+
+	return &fm, []byte(parts[2]), nil
 }
 
 func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent []byte, files []*entity.File) (*template.Template, error) {
@@ -341,6 +282,7 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 		content []byte
 		err     error
 	)
+
 	if a.fileExists(templateFileName) {
 		content, err = afero.ReadFile(a.fs, templateFileName)
 		if err != nil {
@@ -361,12 +303,14 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 			filesMap[files[i].Name] = files[i]
 		}
 
-		tmpl = tmpl.Funcs(template.FuncMap{
-			funcNameFile: func(fileName string, args ...string) (template.HTML, error) {
+		funcMap := template.FuncMap{}
+		if tmpl.Lookup(templateNameFile) != nil {
+			funcMap[funcNameFile] = func(fileName string, args ...string) (template.HTML, error) {
 				tt := tmpl.Lookup(templateNameFile)
 				if tt == nil {
 					return "", fmt.Errorf("template %s must be defined", templateNameFile)
 				}
+
 				file, exists := filesMap[fileName]
 				if !exists {
 					return "", fmt.Errorf("cannot find file: %s", fileName)
@@ -377,16 +321,23 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 				}
 
 				return buildTemplateHTML(tmpl, file)
-			},
-			funcNameFiles: func() (template.HTML, error) {
+			}
+		}
+
+		if tmpl.Lookup(templateNameFiles) != nil {
+			funcMap[funcNameFiles] = func() (template.HTML, error) {
 				tt := tmpl.Lookup(templateNameFiles)
 				if tt == nil {
 					return "", fmt.Errorf("template %s must be defined", templateNameFiles)
 				}
 
 				return buildTemplateHTML(tt, files)
-			},
-		})
+			}
+		}
+
+		if len(funcMap) > 0 {
+			tmpl = tmpl.Funcs(funcMap)
+		}
 	}
 
 	tmpl, err = tmpl.Parse(string(content))
@@ -396,44 +347,6 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 
 	return tmpl, nil
 }
-
-// func (a *fsAdapter) getTemplate(files []*entity.File) (*template.Template, error) {
-// 	if !a.fileExists(a.cfg.TemplateFileName) {
-// 		tmpl := a.tmpl.Lookup(templateName)
-// 		if tmpl == nil {
-// 			return nil, fmt.Errorf("cannot get default template")
-// 		}
-
-// 		return tmpl, nil
-// 	}
-
-// 	content, err := afero.ReadFile(a.fs, a.cfg.TemplateFileName)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("cannot load template file %s: %w", a.cfg.TemplateFileName, err)
-// 	}
-
-// 	tmpl := template.New("").Funcs(template.FuncMap{
-// 		templateNameFile: func(fileName string) (string, error) {
-
-// 		},
-// 	})
-
-// 	return template.New("").Parse(string(content))
-// }
-
-// func (a *fsAdapter) buildIndexPage(content *PageContextIndex) (string, error) {
-// 	tmpl, err := template.ParseFiles(a.cfg.IndexPageFileName)
-// 	if err != nil {
-// 		return "", fmt.Errorf("cannot parse index file file: %w", err)
-// 	}
-
-// 	return buildTemplate(tmpl, content)
-
-// }
-
-// func (a *fsAdapter) buildTemplatePage(content *PageContext) (string, error) {
-// 	panic("not implemented")
-// }
 
 func (a *fsAdapter) readFiles(folderPath string) ([]*entity.File, error) {
 	entries, err := afero.ReadDir(a.fs, folderPath)
@@ -499,35 +412,6 @@ func buildTemplateHTML(tmpl *template.Template, data any) (template.HTML, error)
 
 	return template.HTML(content), err
 }
-
-// func (a *fsAdapter) getFolderDesc(folderPath string) (string, *FolderDesc, error) {
-// 	filePath := filepath.Join(folderPath, a.descFileName)
-// 	if !a.fileExists(filePath) {
-// 		return "", &FolderDesc{
-// 			Title:   filepath.Base(folderPath),
-// 			Enabled: true,
-// 		}, nil
-// 	}
-
-// 	data, err := afero.ReadFile(a.fs, filePath)
-// 	if err != nil {
-// 		return "", nil, fmt.Errorf("cannot read description file")
-// 	}
-
-// 	var buf bytes.Buffer
-// 	ctx := parser.NewContext()
-// 	if err := a.md.Convert(data, &buf, parser.WithContext(ctx)); err != nil {
-// 		return "", nil, fmt.Errorf("cannot convert description file to markdown")
-// 	}
-
-// 	fm := frontmatter.Get(ctx)
-// 	var fd FolderDesc
-// 	if err := fm.Decode(&fd); err != nil {
-// 		return "", nil, fmt.Errorf("cannot read frontmatter from description file")
-// 	}
-
-// 	return buf.String(), &fd, nil
-// }
 
 func (a *fsAdapter) getMimeType(filePath string) (string, error) {
 	if ext := filepath.Ext(filePath); ext != "" {

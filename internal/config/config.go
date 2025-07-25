@@ -158,6 +158,17 @@ func (c *Config) SetDefaults() {
 	}
 }
 
+func (c *Config) FSAdapterConfig() *FSAdapterConfig {
+	return &FSAdapterConfig{
+		WorkDir:           c.IndexerConfig.WorkDir,
+		URL:               c.HandlerConfig.URL,
+		IndexPageFileName: c.IndexerConfig.IndexPageFileName,
+		DescFileName:      c.IndexerConfig.DescFileName,
+		TemplateFileName:  c.IndexerConfig.TemplateFileName,
+		SkipFiles:         c.IndexerConfig.SkipFiles,
+	}
+}
+
 func (c *Config) Validate() error {
 	panic("not implemented")
 }
