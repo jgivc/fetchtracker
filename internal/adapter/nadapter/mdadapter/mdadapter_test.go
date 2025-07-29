@@ -18,18 +18,35 @@ var source = `# AAA
 Test text text test 321
 [[bbb.txt|File bbb]] d
 Test 123 eee ss kjhkjh
+
+А тут еще
+
+[[FILES]]
+
+И вот еще текст
 `
 
 var tsrc = `{{ define "FILE" }}
 <a href="#">{{ .Name }}</a>
-{{ end}}
+{{ end }}
+
 {{ define "FILES" }}
 <ul>
-{{ range . }}
-<li><a href="#">{{ .Name }}</a></li>
-{{ end }}
-</ul>
+{{ range . }}<li><a href="#">{{ .Name }}</a></li>
+{{ end }}</ul>
 {{ end }}`
+
+//
+// var tsrc = `{{ define "FILE" }}
+// <a href="#">{{ .Name }}</a>
+// {{ end}}
+// {{ define "FILES" }}
+// <ul>
+// {{ range . }}
+// <li><a href="#">{{ .Name }}</a></li>
+// {{ end }}
+// </ul>
+// {{ end }}`
 
 type MockFileResolver struct {
 	mock.Mock
@@ -70,12 +87,24 @@ func TestMDAdapter(t *testing.T) {
 		Name: "bbb.txt",
 	}, nil)
 
+	m.On("GetFiles").Return([]*entity.File{
+		{Name: "aaa.txt"},
+		{Name: "bbb.txt"},
+		{Name: "ccc.txt"},
+	})
+
 	tmpl, err := template.New("").Parse(tsrc)
 	require.NoError(t, err)
 
+	fTmpl := tmpl.Lookup("FILE")
+	require.NotNil(t, fTmpl)
+
+	fsTmpl := tmpl.Lookup("FILES")
+	require.NotNil(t, fsTmpl)
+
 	md := goldmark.New(
 		goldmark.WithExtensions(
-			NewFilesExtension(m, tmpl),
+			NewFilesExtension(m, fTmpl, fsTmpl),
 		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),

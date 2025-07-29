@@ -16,12 +16,13 @@ type FileResolver interface {
 }
 
 type FilesExtension struct {
-	r    FileResolver
-	tmpl *template.Template
+	r         FileResolver
+	fileTmpl  *template.Template
+	filesTmpl *template.Template
 }
 
-func NewFilesExtension(r FileResolver, tmpl *template.Template) goldmark.Extender {
-	return &FilesExtension{r: r, tmpl: tmpl}
+func NewFilesExtension(r FileResolver, fileTmpl *template.Template, filesTmpl *template.Template) goldmark.Extender {
+	return &FilesExtension{r: r, fileTmpl: fileTmpl, filesTmpl: filesTmpl}
 }
 
 func (e *FilesExtension) Extend(m goldmark.Markdown) {
@@ -29,10 +30,14 @@ func (e *FilesExtension) Extend(m goldmark.Markdown) {
 		parser.WithInlineParsers(
 			util.Prioritized(NewFileDirectiveParser(), 199),
 		),
+		parser.WithBlockParsers(
+			util.Prioritized(&FilesBlockParser{}, 199),
+		),
 	)
 	m.Renderer().AddOptions(
 		renderer.WithNodeRenderers(
-			util.Prioritized(NewFileDirectiveRenderer(e.r, e.tmpl), 199),
+			util.Prioritized(NewFileDirectiveRenderer(e.r, e.fileTmpl), 199),
+			util.Prioritized(&FilesRenderer{e.r, e.filesTmpl}, 199),
 		),
 	)
 }
