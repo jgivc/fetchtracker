@@ -7,7 +7,7 @@
         <title>{{ .Title }}</title>
     </head>
     <body>
-        {{ .PageContent }}
+        {{ .ContentHTML }}
     </body>
 </html>
 
@@ -21,7 +21,7 @@
 
 {{ define "FILES" }}
 <ul>
-    {{ range .Files }}
+    {{ range . }}
     <li>{{ .Name }}</li>
     {{ end }}
 </ul>

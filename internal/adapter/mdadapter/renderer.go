@@ -28,7 +28,8 @@ func (r *FileDirectiveRenderer) renderFileDirective(w util.BufWriter, source []b
 
 	directive := n.(*FileDirective)
 
-	w.WriteString(fmt.Sprintf(`<a class="aabb" href="#">%s</a>`, directive.Filename))
+	// w.WriteString(fmt.Sprintf(`<a class="aabb" href="#">%s</a>`, directive.Filename))
+	fmt.Fprintf(w, `<a class="aabb" href="#">%s</a>`, directive.Filename)
 
 	return ast.WalkContinue, nil
 }

@@ -26,6 +26,11 @@ import (
 )
 
 const (
+	ParseModeIndex ParseMode = iota
+	ParseModeDefaultIndex
+	ParseModeMdCustomTemplate
+	ParseModeMdDefaultTemplate
+
 	maxFiles              = 100
 	mimeTypeUnknown       = "application/octet-stream"
 	mimeTypeCheckPartSize = 512
@@ -37,11 +42,6 @@ const (
 
 	funcNameFile  = "file"
 	funcNameFiles = "files"
-
-	ParseModeIndex ParseMode = iota
-	ParseModeDefaultIndex
-	ParseModeMdCustomTemplate
-	ParseModeMdDefaultTemplate
 )
 
 type ParseMode int
@@ -59,13 +59,14 @@ var (
 )
 
 type PageContextIndex struct {
-	URL      string
-	Download *entity.Download
+	URL string
+	*entity.Download
 }
 
 type PageContext struct {
 	URL         string
-	Download    *entity.Download
+	ContentHTML template.HTML
+	*entity.Download
 	Frontmatter *Frontmatter
 }
 
@@ -81,7 +82,6 @@ type fsAdapter struct {
 	cfg       *config.FSAdapterConfig
 	skipFiles map[string]struct{}
 	md        goldmark.Markdown
-	// tmpl      *template.Template
 
 	log *slog.Logger
 }
@@ -105,10 +105,17 @@ func NewFSAdapterWithFS(fs afero.Fs, cfg *config.FSAdapterConfig, log *slog.Logg
 			extension.Table,
 			extension.Linkify,
 			extension.TaskList,
+			extension.NewTypographer(
+				extension.WithTypographicSubstitutions(extension.TypographicSubstitutions{
+					extension.LeftDoubleQuote:  []byte(`"`),
+					extension.RightDoubleQuote: []byte(`"`),
+				}),
+			),
 		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 			html.WithXHTML(),
+			html.WithUnsafe(),
 		),
 	)
 
@@ -167,7 +174,7 @@ func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
 }
 
 func (a *fsAdapter) parseIndex(folderPath string, download *entity.Download) error {
-	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.IndexPageFileName), defaultIndexContent, download.Files)
+	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.IndexPageFileName), defaultIndexContent, nil, download.Files)
 	if err != nil {
 		return fmt.Errorf("cannot get index template: %w", err)
 	}
@@ -191,47 +198,67 @@ func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) 
 		return fmt.Errorf("cannot get frontmatter: %w", err)
 	}
 
-	download.Title = fm.Title
-	download.Enabled = fm.Enabled
+	if fm != nil {
+		download.Title = fm.Title
+		download.Enabled = fm.Enabled
 
-	if len(fm.Files) > 0 {
-		for i := range download.Files {
-			if fileDesc, exists := fm.Files[download.Files[i].Name]; exists {
-				download.Files[i].Description = fileDesc
+		if len(fm.Files) > 0 {
+			for i := range download.Files {
+				if fileDesc, exists := fm.Files[download.Files[i].Name]; exists {
+					download.Files[i].Description = fileDesc
+				}
 			}
 		}
 	}
 
-	// Template for prebuilding markdown. Replace file link `{{ file "filename.txt" }}` to html.
-	tmpl, err := a.getTemplate("", mdData, download.Files)
-	if err != nil {
-		return fmt.Errorf("cannot get markdown template: %w", err)
-	}
-
-	content, err := buildTemplate(tmpl, nil)
-	if err != nil {
-		return fmt.Errorf("cannot prebuild markdown: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := a.md.Convert([]byte(content), &buf); err != nil {
-		return fmt.Errorf("cannot convert markdown: %w", err)
-	}
-
-	download.PageContent = content // What was in mardown
-
-	tmpl, err = a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, download.Files)
+	// Get template to get FILE and FILES templates if any.
+	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, nil, nil)
 	if err != nil {
 		return fmt.Errorf("cannot get page template: %w", err)
 	}
 
-	content, err = buildTemplate(tmpl, &PageContext{URL: a.cfg.URL, Download: download, Frontmatter: fm})
+	fmt.Println(0, string(mdData))
+	fmt.Println("----------------------------------------------------")
+	// Convert markdown to html
+	var buf bytes.Buffer
+	if err := a.md.Convert(mdData, &buf); err != nil {
+		return fmt.Errorf("cannot convert markdown: %w", err)
+	}
+
+	fmt.Println(1, buf.String())
+
+	// Get template from converted markdown.
+	tmpl, err = a.getTemplate("", buf.Bytes(), tmpl, download.Files)
+	if err != nil {
+		return fmt.Errorf("cannot get markdown template: %w", err)
+	}
+
+	fmt.Println(2, "@@@@")
+
+	// Convert template. This converts {{ file/files }} if any.
+	contentHTML, err := buildTemplate(tmpl, download)
+	if err != nil {
+		return fmt.Errorf("cannot prebuild markdown: %w", err)
+	}
+
+	fmt.Println(3, contentHTML)
+
+	download.PageContent = string(contentHTML) // What was in mardown
+
+	// Get main page template
+	tmpl, err = a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, nil, nil)
+	if err != nil {
+		return fmt.Errorf("cannot get page template: %w", err)
+	}
+
+	// Convert entire page
+	content, err := buildTemplateHTML(tmpl, &PageContext{URL: a.cfg.URL, ContentHTML: template.HTML(contentHTML), Download: download, Frontmatter: fm})
 	if err != nil {
 		return fmt.Errorf("cannot build page: %w", err)
 	}
 
-	download.PageContent = content
-	download.PageHash = util.GetIDFromString(&content)
+	download.PageContent = string(content)
+	download.PageHash = util.GetIDFromString(&download.PageContent)
 
 	return nil
 }
@@ -262,12 +289,12 @@ func (a *fsAdapter) getFrontmatter(fileName string) (*Frontmatter, []byte, error
 	str := string(content)
 
 	if !strings.HasPrefix(str, "---\n") {
-		return &fm, []byte(str), nil
+		return nil, []byte(str), nil
 	}
 
 	parts := strings.SplitN(str, "---\n", 3)
 	if len(parts) < 3 {
-		return &fm, []byte(str), nil
+		return nil, []byte(str), nil
 	}
 
 	if err := yaml.Unmarshal([]byte(parts[1]), &fm); err != nil {
@@ -277,7 +304,7 @@ func (a *fsAdapter) getFrontmatter(fileName string) (*Frontmatter, []byte, error
 	return &fm, []byte(parts[2]), nil
 }
 
-func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent []byte, files []*entity.File) (*template.Template, error) {
+func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent []byte, parentTmpl *template.Template, files []*entity.File) (*template.Template, error) {
 	var (
 		content []byte
 		err     error
@@ -297,6 +324,9 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 	}
 
 	tmpl := template.New("")
+	if parentTmpl != nil {
+		tmpl = parentTmpl
+	}
 	if len(files) > 0 {
 		filesMap := make(map[string]*entity.File, len(files))
 		for i := range files {
@@ -437,6 +467,10 @@ func (a *fsAdapter) getMimeType(filePath string) (string, error) {
 }
 
 func (a *fsAdapter) fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+
 	_, err := a.fs.Stat(path)
 	if err == nil {
 		return true // Path exists
