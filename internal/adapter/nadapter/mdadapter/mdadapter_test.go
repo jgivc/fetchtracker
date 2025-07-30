@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 )
 
@@ -78,16 +79,46 @@ func (m *MockFileResolver) GetFiles() []*entity.File {
 	return f
 }
 
+type MockTemplateResolver struct {
+	mock.Mock
+}
+
+func (m *MockTemplateResolver) GetFileTemplate() *template.Template {
+	args := m.Called()
+
+	var tmpl *template.Template
+	if args[0] != nil {
+		if t, ok := args.Get(0).(*template.Template); ok {
+			tmpl = t
+		}
+	}
+
+	return tmpl
+}
+
+func (m *MockTemplateResolver) GetFilesTemplate() *template.Template {
+	args := m.Called()
+
+	var tmpl *template.Template
+	if args[0] != nil {
+		if t, ok := args.Get(0).(*template.Template); ok {
+			tmpl = t
+		}
+	}
+
+	return tmpl
+}
+
 func TestMDAdapter(t *testing.T) {
-	m := new(MockFileResolver)
-	m.On("GetFile", "aaa.txt").Return(&entity.File{
+	mfr := new(MockFileResolver)
+	mfr.On("GetFile", "aaa.txt").Return(&entity.File{
 		Name: "aaa.txt",
 	}, nil)
-	m.On("GetFile", "bbb.txt").Return(&entity.File{
+	mfr.On("GetFile", "bbb.txt").Return(&entity.File{
 		Name: "bbb.txt",
 	}, nil)
 
-	m.On("GetFiles").Return([]*entity.File{
+	mfr.On("GetFiles").Return([]*entity.File{
 		{Name: "aaa.txt"},
 		{Name: "bbb.txt"},
 		{Name: "ccc.txt"},
@@ -99,12 +130,17 @@ func TestMDAdapter(t *testing.T) {
 	fTmpl := tmpl.Lookup("FILE")
 	require.NotNil(t, fTmpl)
 
+	mtr := new(MockTemplateResolver)
+	mtr.On("GetFileTemplate").Return(fTmpl)
+
 	fsTmpl := tmpl.Lookup("FILES")
 	require.NotNil(t, fsTmpl)
 
+	mtr.On("GetFilesTemplate").Return(fsTmpl)
+
 	md := goldmark.New(
 		goldmark.WithExtensions(
-			NewFilesExtension(m, fTmpl, fsTmpl),
+			NewFilesExtension(),
 		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
@@ -112,8 +148,12 @@ func TestMDAdapter(t *testing.T) {
 		),
 	)
 
+	pc := parser.NewContext()
+	pc.Set(FileResolverKey, mfr)
+	pc.Set(TemplateResolverKey, mtr)
+
 	var buf bytes.Buffer
-	if err := md.Convert([]byte(source), &buf); err != nil {
+	if err := md.Convert([]byte(source), &buf, parser.WithContext(pc)); err != nil {
 		panic(err)
 	}
 

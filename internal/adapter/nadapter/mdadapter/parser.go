@@ -2,14 +2,20 @@ package mdadapter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"text/template"
 
+	"github.com/jgivc/fetchtracker/internal/entity"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
 
 const (
+	TemplateResolverKey parser.ContextKey = iota
+	FileResolverKey
+
 	fileNameMinLength = 5
 	filesLength       = 5
 )
@@ -20,7 +26,22 @@ var (
 	descSeq  = []byte{'|'}
 
 	wordFiles = []byte("FILES")
+
+	ErrNoTemplateResolverError = errors.New("no template resolver")
+	ErrNoFileResolverError     = errors.New("no file resolver")
+	ErrNoTemplateError         = errors.New("cannot get template")
+	ErrInvalidSyntax           = errors.New("invalid syntax")
 )
+
+type FileResolver interface {
+	GetFile(fileName string) (*entity.File, error)
+	GetFiles() []*entity.File
+}
+
+type TemplateResolver interface {
+	GetFileTemplate() *template.Template
+	GetFilesTemplate() *template.Template
+}
 
 /*
  * Wiki link
@@ -46,43 +67,87 @@ func (s *FileNodeParser) Parse(parent ast.Node, block text.Reader, pc parser.Con
 
 	line := bytes.TrimSpace(b[len(startSeq):end])
 	if len(b) < fileNameMinLength {
-		return nil
+		node := &FileNode{Error: ErrInvalidSyntax}
+
+		return node
 	}
 
-	if bytes.Contains(b, []byte("FILES")) {
-		fmt.Println("UUUUUUUUUUUUU")
-	}
+	block.Advance(end + len(endSeq))
+	filename, description := s.parseFileReference(line)
 
-	fmt.Println(123, string(line))
+	return s.makeNode(filename, description, pc)
+}
 
-	block.Advance(end + 2)
-
+func (s *FileNodeParser) parseFileReference(line []byte) (string, string) {
 	if idx := bytes.Index(line, descSeq); idx > 0 {
 		data := bytes.Split(line, descSeq)
-		if len(data) > 1 {
-			return &FileNode{
-				Filename:    string(bytes.TrimSpace(data[0])),
-				Description: string(bytes.TrimSpace(data[0])),
-			}
+		if len(data) >= 2 {
+			filename := string(bytes.TrimSpace(data[0]))
+			description := string(bytes.TrimSpace(data[1]))
+			return filename, description
 		}
 	}
 
-	return &FileNode{
-		Filename: string(bytes.TrimSpace(line)),
+	return string(bytes.TrimSpace(line)), ""
+}
+
+func (s *FileNodeParser) makeNode(filename, description string, pc parser.Context) *FileNode {
+	node := &FileNode{Filename: filename}
+
+	tr, ok := pc.Get(TemplateResolverKey).(TemplateResolver)
+	if !ok {
+		node.Error = ErrNoTemplateResolverError
+
+		return node
 	}
+
+	fr, ok := pc.Get(FileResolverKey).(FileResolver)
+	if !ok {
+		node.Error = ErrNoFileResolverError
+
+		return node
+	}
+
+	file, err := fr.GetFile(filename)
+	if err != nil {
+		node.Error = fmt.Errorf("cannot get file %s: %w", filename, err)
+
+		return node
+	}
+
+	if description != "" {
+		fileCopy := *file
+		fileCopy.Description = description
+		file = &fileCopy
+	}
+
+	tmpl := tr.GetFileTemplate()
+	if tmpl == nil {
+		node.Error = ErrNoTemplateError
+
+		return node
+	}
+
+	buf := &bytes.Buffer{}
+	if err := tmpl.Execute(buf, file); err != nil {
+		node.Error = fmt.Errorf("cannot execute template: %w", err)
+
+		return node
+	}
+
+	node.HTML = buf.Bytes()
+
+	return node
 }
 
 type FilesBlockParser struct{}
 
-// Trigger определяет символы, которые активируют парсер
 func (p *FilesBlockParser) Trigger() []byte {
 	return []byte{'[', '['}
 }
 
-// Open проверяет, может ли строка быть началом блока [[FILES]]
 func (p *FilesBlockParser) Open(parent ast.Node, reader text.Reader, pc parser.Context) (ast.Node, parser.State) {
 	b, seg := reader.PeekLine()
-	// fmt.Println("LINE:", string(line))
 	end := bytes.Index(b, endSeq)
 	if end < 0 {
 		return nil, parser.NoChildren
@@ -96,10 +161,47 @@ func (p *FilesBlockParser) Open(parent ast.Node, reader text.Reader, pc parser.C
 	if bytes.Equal(bytes.TrimSpace(line), wordFiles) {
 		reader.Advance(seg.Len())
 
-		return &FilesNode{}, parser.NoChildren
+		return p.makeNode(pc), parser.NoChildren
 	}
 
 	return nil, parser.NoChildren
+}
+
+func (p *FilesBlockParser) makeNode(pc parser.Context) *FilesNode {
+	node := &FilesNode{}
+
+	tr, ok := pc.Get(TemplateResolverKey).(TemplateResolver)
+	if !ok {
+		node.Error = ErrNoTemplateResolverError
+
+		return node
+	}
+
+	fr, ok := pc.Get(FileResolverKey).(FileResolver)
+	if !ok {
+		node.Error = ErrNoFileResolverError
+
+		return node
+	}
+
+	files := fr.GetFiles()
+
+	tmpl := tr.GetFilesTemplate()
+	if tmpl == nil {
+		node.Error = ErrNoTemplateError
+
+		return node
+	}
+
+	buf := &bytes.Buffer{}
+	if err := tmpl.Execute(buf, files); err != nil {
+		node.Error = fmt.Errorf("cannot execute files template: %w", err)
+		return node
+	}
+
+	node.HTML = buf.Bytes()
+
+	return node
 }
 
 // Continue проверяет, продолжается ли блок (в нашем случае это однострочный блок)
