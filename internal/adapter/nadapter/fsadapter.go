@@ -34,8 +34,8 @@ const (
 	maxFiles              = 100
 	mimeTypeUnknown       = "application/octet-stream"
 	mimeTypeCheckPartSize = 512
-	templateName          = "defaultTmpl"
-	templateIndexName     = "defaultIndex"
+	// templateName          = "defaultTmpl"
+	// templateIndexName = "defaultIndex"
 
 	templateNameFile  = "FILE"
 	templateNameFiles = "FILES"
@@ -51,10 +51,10 @@ func (m ParseMode) String() string {
 }
 
 var (
-	//go:embed template.html
+	//go:embed templates/template.html
 	defaultTemplateContent []byte
 
-	//go:embed index.html
+	//go:embed templates/index.html
 	defaultIndexContent []byte
 )
 
@@ -133,7 +133,7 @@ func NewFSAdapterWithFS(fs afero.Fs, cfg *config.FSAdapterConfig, log *slog.Logg
 /*
 1. If the distribution folder contains the file cfg.IndexPageFileName, then parse it.
 2. If the distribution folder does not contain the file cfg.DescFileName, then parse the default cfg.DefaultIndexTemplate template.
-3. If the distribution folder contains cfg.TemplateFileName, then parse it with it.
+3. If the distribution folder contains cfg.TemplateFileName and cfg.DescFileName, then parse it with it.
 4. If the folder only contains cfg.DescFileName, then parse with cfg.DefaultMDTemplate template.
 */
 func (a *fsAdapter) ToDownload(folderPath string) (*entity.Download, error) {
