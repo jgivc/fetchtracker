@@ -1,4 +1,4 @@
-package nadapter
+package fsadapter
 
 import (
 	"fmt"

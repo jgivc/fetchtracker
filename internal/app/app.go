@@ -73,11 +73,7 @@ func (a *App) Start() {
 		panic(err)
 	}
 
-	fsa, err := fsadapter.NewFSAdapter(
-		a.cfg.IndexerConfig.WorkDir,
-		a.cfg.IndexerConfig.DescFileName,
-		a.cfg.IndexerConfig.TemplateFileName,
-		a.cfg.HandlerConfig.URL, nil, log)
+	fsa, err := fsadapter.NewFSAdapter(a.cfg.FSAdapterConfig(), log)
 	if err != nil {
 		panic(err)
 	}
