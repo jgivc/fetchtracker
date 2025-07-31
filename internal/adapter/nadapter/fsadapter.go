@@ -35,8 +35,6 @@ const (
 	maxFiles              = 100
 	mimeTypeUnknown       = "application/octet-stream"
 	mimeTypeCheckPartSize = 512
-	// templateName          = "defaultTmpl"
-	// templateIndexName = "defaultIndex"
 
 	templateNameFile  = "FILE"
 	templateNameFiles = "FILES"

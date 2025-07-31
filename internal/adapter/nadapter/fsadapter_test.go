@@ -43,45 +43,45 @@ func TestFCAdapter(t *testing.T) {
 			},
 			expectError: true,
 		},
-		// 		{
-		// 			name:    "Scenario 3: Empty folder with index.html",
-		// 			workDir: "one",
-		// 			files: map[string]string{
-		// 				cfg.DescFileName: `#Title
-		// 				Test test test`,
-		// 			},
-		// 			expectError: true,
-		// 		},
-		// 		{
-		// 			name:    "Scenario 4: Default index",
-		// 			workDir: "one",
-		// 			files: map[string]string{
-		// 				"test1.txt": "test1 content",
-		// 			},
-		// 			expectedGoldenFile: "scenario4.golden.html",
-		// 		},
-		// 		{
-		// 			name:    "Scenario 5: Custom index",
-		// 			workDir: "one",
-		// 			files: map[string]string{
-		// 				"test1.txt": "test1 content",
-		// 				"test2.txt": "test2 content",
-		// 				cfg.IndexPageFileName: `<html>
-		// 	<head>
-		// 		<title>{{ .Title }}</title>
-		// 		<link rel="stylesheet" href="{{ .URL }}/styles.css">
-		// 	</head>
-		// 	<body>
-		// 		<ul>
-		// 		{{ range .Files }}
-		// 			<li>{{ .SourcePath }}</li>
-		// 		{{ end }}
-		// 		</ul>
-		// 	</body>
-		// </html>`,
-		// 			},
-		// 			expectedGoldenFile: "scenario5.golden.html",
-		// 		},
+		{
+			name:    "Scenario 3: Empty folder with description file",
+			workDir: "one",
+			files: map[string]string{
+				cfg.DescFileName: `#Title
+						Test test test`,
+			},
+			expectError: true,
+		},
+		{
+			name:    "Scenario 4: Default index",
+			workDir: "one",
+			files: map[string]string{
+				"test1.txt": "test1 content",
+			},
+			expectedGoldenFile: "scenario4.golden.html",
+		},
+		{
+			name:    "Scenario 5: Custom index",
+			workDir: "one",
+			files: map[string]string{
+				"test1.txt": "test1 content",
+				"test2.txt": "test2 content",
+				cfg.IndexPageFileName: `<html>
+	<head>
+		<title>{{ .Title }}</title>
+		<link rel="stylesheet" href="{{ .URL }}/styles.css">
+	</head>
+	<body>
+		<ul>
+		{{ range .Files }}
+			<li>{{ .SourcePath }}</li>
+		{{ end }}
+		</ul>
+	</body>
+</html>`,
+			},
+			expectedGoldenFile: "scenario5.golden.html",
+		},
 		{
 			name:    "Scenario 6: Default markdown template",
 			workDir: "one",
@@ -104,6 +104,67 @@ Here is another file [[test5.txt|Test 5 file]] with description and text further
 `,
 			},
 			expectedGoldenFile: "scenario6.golden.html",
+		},
+		{
+			name:    "Scenario 7: Custom markdown template and default FILE/FILES template",
+			workDir: "one",
+			files: map[string]string{
+				"test7.txt": "test7 content",
+				"test8.txt": "test8 content",
+				cfg.DescFileName: `# Share files
+Test test test
+## One file
+Here is one file [[test7.txt]]
+
+## All files
+[[FILES]]
+`,
+				cfg.TemplateFileName: `<html>
+	<head>
+		<title>{{ .Title }}</title>
+	</head>
+	<body>
+		{{ .ContentHTML }}
+	</body>
+</html>`,
+			},
+			expectedGoldenFile: "scenario7.golden.html",
+		},
+		{
+			name:    "Scenario 8: Custom markdown template and FILE/FILES",
+			workDir: "one",
+			files: map[string]string{
+				"test9.txt":  "test9 content",
+				"test10.txt": "test10 content",
+				cfg.DescFileName: `# Share files
+Test test test
+## One file
+Here is one file [[test10.txt]]
+
+## All files
+[[FILES]]
+`,
+				cfg.TemplateFileName: `<html>
+			<head>
+				<title>{{ .Title }}</title>
+			</head>
+			<body>
+				{{ .ContentHTML }}
+			</body>
+</html>
+
+{{ define "FILE" }}
+<a class="my-file-class">{{ .Name }}</a>
+{{ end }}
+{{ define "FILES" }}
+<ul>
+{{ range . }}
+<li class="my-li"><a class="my-a">{{ .Name }}</a></li>
+{{ end }}
+</ul>
+{{ end }}`,
+			},
+			expectedGoldenFile: "scenario8.golden.html",
 		},
 	}
 
@@ -154,75 +215,3 @@ Here is another file [[test5.txt|Test 5 file]] with description and text further
 		})
 	}
 }
-
-// type FSAdapterTestSuite struct {
-// 	suite.Suite
-// 	adapter *fsAdapter
-// 	fs      afero.Fs
-// 	cfg     *config.Config
-// 	log     *slog.Logger
-// }
-
-// type testFile struct {
-// 	Path    string
-// 	Content string
-// }
-
-// func (s *FSAdapterTestSuite) makeFS(files ...*testFile) {
-// 	dirMap := make(map[string]struct{})
-// 	for _, file := range files {
-// 		dirMap[filepath.Dir(file.Path)] = struct{}{}
-// 	}
-
-// 	for dir := range dirMap {
-// 		err := s.fs.MkdirAll(dir, os.ModeDir)
-// 		s.Require().NoError(err)
-// 	}
-
-// 	for _, file := range files {
-// 		err := afero.WriteFile(s.fs, file.Path, []byte(file.Content), os.ModeAppend)
-// 		s.Require().NoError(err)
-// 	}
-// }
-
-// func (s *FSAdapterTestSuite) SetupTest() {
-// 	s.fs = afero.NewMemMapFs()
-// 	s.log = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
-// 	s.cfg = &config.Config{}
-// 	s.cfg.SetDefaults()
-// }
-
-// func (s *FSAdapterTestSuite) TestEmptyFolder() {
-// 	workDir := "/testdir"
-// 	a, err := NewFSAdapterWithFS(s.fs, &config.FSAdapterConfig{
-// 		WorkDir: workDir,
-// 	}, s.log)
-// 	s.NoError(err)
-// 	a.fs.Mkdir(workDir, os.ModeDir)
-// 	_, err = a.ToDownload(workDir)
-// 	s.Error(err)
-// }
-
-// func (s *FSAdapterTestSuite) TestIndexFile() {
-// 	workDir := "/testdir"
-// 	s.makeFS(
-// 		&testFile{workDir + "/test.txt", "Test text"},
-// 	)
-
-// 	s.cfg.IndexerConfig.WorkDir = workDir
-// 	a, err := NewFSAdapterWithFS(s.fs, s.cfg.FSAdapterConfig(), s.log)
-// 	s.NoError(err)
-// 	d, err := a.ToDownload(workDir)
-// 	s.NoError(err)
-// 	s.NotNil(d)
-
-// 	fmt.Println(1, d.PageContent)
-
-// 	if *update {
-// 		s.T().Log("updating golden file ########################################")
-// 	}
-// }
-
-// func TestFSAdapterTestSuite(t *testing.T) {
-// 	suite.Run(t, new(FSAdapterTestSuite))
-// }
