@@ -8,12 +8,10 @@ require (
 	github.com/spf13/afero v1.14.0
 	github.com/stretchr/testify v1.8.2
 	github.com/yuin/goldmark v1.7.12
-	go.abhg.dev/goldmark/frontmatter v0.2.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
