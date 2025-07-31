@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"text/template"
+	"html/template"
 
 	"github.com/jgivc/fetchtracker/internal/entity"
 	"github.com/yuin/goldmark/ast"
@@ -172,6 +172,7 @@ func (p *FilesBlockParser) makeNode(pc parser.Context) *FilesNode {
 
 	tr, ok := pc.Get(TemplateResolverKey).(TemplateResolver)
 	if !ok {
+		fmt.Println(222)
 		node.Error = ErrNoTemplateResolverError
 
 		return node

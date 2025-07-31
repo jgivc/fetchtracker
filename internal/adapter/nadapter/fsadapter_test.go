@@ -94,12 +94,12 @@ func TestFCAdapter(t *testing.T) {
 Test file content
 
 ## Files
-{{ files }}
+[[FILES]]
 
 ## File
 
-Here is one file {{ file "test4.txt" }} and text further...
-Here is another file {{ file "test5.txt" "Test 5 file" }} with description and text further...
+Here is one file [[test4.txt]] and text further...
+Here is another file [[test5.txt|Test 5 file]] with description and text further...
 
 `,
 			},

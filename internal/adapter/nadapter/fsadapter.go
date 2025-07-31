@@ -15,12 +15,13 @@ import (
 
 	_ "embed"
 
+	"github.com/jgivc/fetchtracker/internal/adapter/nadapter/mdadapter"
 	"github.com/jgivc/fetchtracker/internal/config"
 	"github.com/jgivc/fetchtracker/internal/entity"
 	"github.com/jgivc/fetchtracker/internal/util"
 	"github.com/spf13/afero"
 	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 	"gopkg.in/yaml.v2"
 )
@@ -101,21 +102,11 @@ func NewFSAdapterWithFS(fs afero.Fs, cfg *config.FSAdapterConfig, log *slog.Logg
 
 	md := goldmark.New(
 		goldmark.WithExtensions(
-			extension.GFM,
-			extension.Table,
-			extension.Linkify,
-			extension.TaskList,
-			extension.NewTypographer(
-				extension.WithTypographicSubstitutions(extension.TypographicSubstitutions{
-					extension.LeftDoubleQuote:  []byte(`"`),
-					extension.RightDoubleQuote: []byte(`"`),
-				}),
-			),
+			mdadapter.NewFilesExtension(),
 		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 			html.WithXHTML(),
-			html.WithUnsafe(),
 		),
 	)
 
@@ -211,48 +202,40 @@ func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) 
 		}
 	}
 
-	// Get template to get FILE and FILES templates if any.
+	// Load template user or my own
 	tmpl, err := a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, nil, nil)
 	if err != nil {
 		return fmt.Errorf("cannot get page template: %w", err)
 	}
 
-	fmt.Println(0, string(mdData))
-	fmt.Println("----------------------------------------------------")
+	// Get templateResolver
+	tResolver, err := newTemplateResolver(tmpl)
+	if err != nil {
+		// Since it is not known which template was loaded, the user's or ours,
+		// we explicitly load our template to search for predefined templates FILE and FILES
+		ftmpl, err := a.getTemplate("", defaultTemplateContent, nil, nil)
+		if err != nil {
+			return fmt.Errorf("cannot get own template: %w", err)
+		}
+
+		tResolver, err = newTemplateResolver(ftmpl)
+		if err != nil {
+			return fmt.Errorf("cannot get template: %w", err)
+		}
+	}
+
+	pc := parser.NewContext()
+	pc.Set(mdadapter.TemplateResolverKey, tResolver)
+	pc.Set(mdadapter.FileResolverKey, newFileResolver(download.Files))
+
 	// Convert markdown to html
 	var buf bytes.Buffer
-	if err := a.md.Convert(mdData, &buf); err != nil {
+	if err := a.md.Convert(mdData, &buf, parser.WithContext(pc)); err != nil {
 		return fmt.Errorf("cannot convert markdown: %w", err)
 	}
 
-	fmt.Println(1, buf.String())
-
-	// Get template from converted markdown.
-	tmpl, err = a.getTemplate("", buf.Bytes(), tmpl, download.Files)
-	if err != nil {
-		return fmt.Errorf("cannot get markdown template: %w", err)
-	}
-
-	fmt.Println(2, "@@@@")
-
-	// Convert template. This converts {{ file/files }} if any.
-	contentHTML, err := buildTemplate(tmpl, download)
-	if err != nil {
-		return fmt.Errorf("cannot prebuild markdown: %w", err)
-	}
-
-	fmt.Println(3, contentHTML)
-
-	download.PageContent = string(contentHTML) // What was in mardown
-
-	// Get main page template
-	tmpl, err = a.getTemplate(filepath.Join(folderPath, a.cfg.TemplateFileName), defaultTemplateContent, nil, nil)
-	if err != nil {
-		return fmt.Errorf("cannot get page template: %w", err)
-	}
-
 	// Convert entire page
-	content, err := buildTemplateHTML(tmpl, &PageContext{URL: a.cfg.URL, ContentHTML: template.HTML(contentHTML), Download: download, Frontmatter: fm})
+	content, err := buildTemplateHTML(tmpl, &PageContext{URL: a.cfg.URL, ContentHTML: template.HTML(buf.String()), Download: download, Frontmatter: fm})
 	if err != nil {
 		return fmt.Errorf("cannot build page: %w", err)
 	}
