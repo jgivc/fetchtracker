@@ -1,0 +1,9 @@
+FilesToDownload = "Files for download"
+DownloadButton = "Download"
+DownloadCounter = "Downloads"
+Title = "Folder {{ .Name }}"
+NoFiles = "No files"
+
+[TotalFiles]
+one = "{{ .PluralCount }} file"
+other = "{{ .PluralCount }} files"
