@@ -1,28 +1,170 @@
-<!-- Default template. When there is a markdown file. -->
+{{/* =======================================================================
+*/}} {{/* Основной шаблон */}} {{/*
+======================================================================= */}}
 <!doctype html>
 <html lang="ru">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{ .Title }}</title>
+        <!-- Подключаем Bootstrap 5 CSS для стилей -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+            integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+            crossorigin="anonymous"
+        />
+        <style>
+            /* У Markdown-контента могут быть свои стили. Добавим базовые отступы. */
+            body .markdown-content h1,
+            body .markdown-content h2,
+            body .markdown-content h3 {
+                margin-top: 1.5rem;
+                margin-bottom: 1rem;
+            }
+            body .markdown-content p {
+                line-height: 1.6;
+            }
+        </style>
     </head>
     <body>
-        {{ .ContentHTML }}
+        <div class="container mt-4">
+            <header class="p-4 p-md-5 mb-4 rounded-3 bg-light">
+                <div class="container-fluid py-3">
+                    <h1 class="display-5 fw-bold">{{ .Title }}</h1>
+                </div>
+            </header>
+
+            <main>
+                <!-- Оборачиваем контент из Markdown в div для возможных доп. стилей -->
+                <div class="markdown-content">{{ .ContentHTML }}</div>
+            </main>
+
+            <footer class="text-center text-muted mt-5 mb-3">
+                <p>&copy; {{ .Title }}</p>
+            </footer>
+        </div>
+
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <script>
+            // Заменяем const и let на var для максимальной совместимости со старыми браузерами
+            ;(function ($) {
+                var COUNTERS_UPDATE_INTERVAL = 30 // в секундах
+                var COUNTERS_UPDATE_DELAY = 1 // в секундах
+                var updateInterval
+                var isPageVisible = true
+
+                $(document).ready(function () {
+                    // Т.к. ID раздачи теперь не в шаблоне, а в данных, получаем его так
+                    var distributionId = {{ .ID }};
+                    if (!distributionId) {
+                        console.error("ID раздачи не найден.");
+                        return;
+                    }
+                    var apiUrl = '/stat/' + distributionId + '/';
+
+                    loadCounters(apiUrl);
+                    startAutoUpdate(apiUrl, COUNTERS_UPDATE_INTERVAL)
+
+                    $('.download-form').submit(function (event) {
+                        setTimeout(function () {
+                            loadCounters(apiUrl)
+                        }, COUNTERS_UPDATE_DELAY * 1000)
+                    })
+
+                    $(document).on('visibilitychange', function () {
+                        isPageVisible = !(document.visibilityState === 'hidden');
+                        if (isPageVisible) {
+                            loadCounters(apiUrl);
+                            if (!updateInterval) {
+                                startAutoUpdate(apiUrl, COUNTERS_UPDATE_INTERVAL);
+                            }
+                        } else {
+                            stopAutoUpdate();
+                        }
+                    })
+                })
+
+                function startAutoUpdate(apiUrl, intervalSeconds) {
+                    intervalSeconds = intervalSeconds || COUNTERS_UPDATE_INTERVAL
+                    if (updateInterval) {
+                        clearInterval(updateInterval)
+                    }
+                    updateInterval = setInterval(function () {
+                        if (isPageVisible) {
+                            loadCounters(apiUrl)
+                        }
+                    }, intervalSeconds * 1000)
+                }
+
+                function stopAutoUpdate() {
+                    if (updateInterval) {
+                        clearInterval(updateInterval)
+                        updateInterval = null
+                    }
+                }
+
+                function loadCounters(apiUrl) {
+                    $.getJSON(apiUrl, function (data) {
+                        if (data) {
+                            $('[data-file-id]').each(function (idx, el) {
+                                var id = $(el).attr('data-file-id')
+                                if (data.hasOwnProperty(id)) {
+                                    $(el).text(data[id])
+                                }
+                            })
+                        }
+                    }).fail(function () {
+                        console.error('Не удалось загрузить статистику скачиваний.');
+                        $('[data-file-id]').text('х');
+                    })
+                }
+            })(jQuery)
+        </script>
     </body>
 </html>
 
-<!--  -->
-
-{{ define "FILE" }}
-<span class="file"><a href="#">{{ .Name }}</a></span>
-{{ end }}
-
-<!--  -->
-
-{{ define "FILES" }}
-<ul>
-    {{ range . }}
-    <li>{{ .Name }}</li>
-    {{ end }}
-</ul>
+{{/* =======================================================================
+*/}} {{/* Именованный шаблон для ОДНОГО файла. Генерирует красивый блок. */}}
+{{/* Контекст (.): одна структура файла (с полями ID, Name, Description) */}}
+{{/* =======================================================================
+*/}} {{ define "FILE" }}
+<div
+    class="list-group-item d-flex justify-content-between align-items-center mb-2"
+>
+    <!-- Используем классы из list-group для консистентности -->
+    <div class="me-3">
+        <!-- Имя файла или описание -->
+        <div class="fw-bold">
+            {{ if .Description }}{{ .Description }}{{ else }}{{ .Name }}{{ end
+            }}
+        </div>
+        <!-- Мета-информация: счетчик скачиваний -->
+        <div class="text-muted small">
+            Скачиваний:
+            <span
+                class="counter badge bg-secondary rounded-pill"
+                data-file-id="{{ .ID }}"
+            >
+                —
+            </span>
+        </div>
+    </div>
+    <!-- Форма скачивания с красивой кнопкой -->
+    <form class="download-form" action="/file/{{ .ID }}/" method="POST">
+        <button type="submit" class="btn btn-primary btn-sm flex-shrink-0">
+            Скачать
+        </button>
+    </form>
+</div>
+{{ end }} {{/*
+======================================================================= */}}
+{{/* Именованный шаблон для ВСЕХ файлов. Генерирует список. */}} {{/* Контекст
+(.): срез структур файлов */}} {{/*
+======================================================================= */}} {{
+define "FILES" }}
+<div class="list-group">
+    {{ range . }} {{/* Для каждого файла вызываем шаблон "FILE", передавая ему
+    текущий файл в качестве контекста */}} {{ template "FILE" . }} {{ end }}
+</div>
 {{ end }}

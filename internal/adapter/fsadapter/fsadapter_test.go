@@ -1,22 +1,16 @@
 package fsadapter
 
 import (
-	"bytes"
 	"flag"
-	"fmt"
-	"html/template"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	"github.com/jgivc/fetchtracker/internal/config"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/text/language"
 )
 
 var update = flag.Bool("update", false, "update golden files")
@@ -220,57 +214,4 @@ Here is one file [[test10.txt]]
 			require.Equal(t, string(expectedHTML), download.PageContent)
 		})
 	}
-}
-
-func TestLocalization(t *testing.T) {
-	// a := plural.Rule{}
-	// plural.Rules[language.Russian] = a
-
-	bundle := i18n.NewBundle(language.Russian)
-	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
-	bundle.MustLoadMessageFile("./locales/ru.toml")
-	bundle.MustLoadMessageFile("./locales/en.toml")
-	fmt.Println(bundle.LanguageTags())
-
-	tmpl, err := template.New("").Parse(`<!DOCTYPE html>
-<html>
-<body>
-  <h2>{{ .FilesToDownload }}</h2>
-  <p>{{ .TotalFiles }}</p>
-</body>
-</html>`)
-
-	require.NoError(t, err)
-
-	localizer := i18n.NewLocalizer(bundle, "ru")
-	tf, err := localizer.Localize(&i18n.LocalizeConfig{
-		DefaultMessage: &i18n.Message{
-			ID:    "TotalFiles",
-			One:   "Total {{.PluralCount}} file.",
-			Other: "Total {{.PluralCount}} files.",
-		},
-		PluralCount: 2,
-		TemplateData: map[string]interface{}{
-			"PluralCount": 2,
-		},
-	})
-	require.NoError(t, err)
-
-	ftd, err := localizer.Localize(&i18n.LocalizeConfig{
-		DefaultMessage: &i18n.Message{
-			ID:    "FilesToDownload",
-			Other: "Files to download 1",
-		},
-	})
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, map[string]interface{}{
-		"TotalFiles":      tf,
-		"FilesToDownload": ftd,
-	})
-
-	require.NoError(t, err)
-
-	fmt.Println(buf.String())
 }

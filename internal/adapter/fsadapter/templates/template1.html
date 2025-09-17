@@ -1,0 +1,28 @@
+<!-- Default template. When there is a markdown file. -->
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ .Title }}</title>
+    </head>
+    <body>
+        {{ .ContentHTML }}
+    </body>
+</html>
+
+<!--  -->
+
+{{ define "FILE" }}
+<span class="file"><a href="#">{{ .Name }}</a></span>
+{{ end }}
+
+<!--  -->
+
+{{ define "FILES" }}
+<ul>
+    {{ range . }}
+    <li>{{ .Name }}</li>
+    {{ end }}
+</ul>
+{{ end }}
