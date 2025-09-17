@@ -348,6 +348,7 @@ func (a *fsAdapter) getTemplate(templateFileName string, defaultTemplateContent 
 
 		if len(funcMap) > 0 {
 			tmpl = tmpl.Funcs(funcMap)
+
 		}
 	}
 

@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ .Title }}</title>
+
+        <!-- Bootstrap 3.4.1 для совместимости со старыми браузерами -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css"
+        />
+
+        <style>
+            body {
+                background-color: #f8f9fa;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+            }
+
+            .main-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 2rem 0;
+                margin-bottom: 2rem;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+
+            .main-header h1 {
+                margin: 0 0 0.5rem 0;
+                font-weight: 300;
+                font-size: 2.5rem;
+            }
+
+            .file-count {
+                opacity: 0.9;
+                font-size: 1.1rem;
+            }
+
+            .file-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .file-item {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                margin-bottom: 1rem;
+                padding: 1.5rem;
+                transition: all 0.3s ease;
+                border-left: 4px solid #667eea;
+            }
+
+            .file-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            }
+
+            .file-info {
+                margin-bottom: 1rem;
+            }
+
+            .file-name {
+                display: block;
+                font-size: 1.2rem;
+                font-weight: 500;
+                color: #333;
+                margin-bottom: 0.5rem;
+                word-break: break-word;
+            }
+
+            .file-meta {
+                color: #666;
+                font-size: 0.95rem;
+            }
+
+            .counter {
+                font-weight: 600;
+                color: #667eea;
+                background: #f0f4ff;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 0.85rem;
+            }
+
+            .download-btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border: none;
+                color: white;
+                padding: 0.75rem 2rem;
+                border-radius: 25px;
+                font-size: 1rem;
+                font-weight: 500;
+                transition: all 0.3s ease;
+                width: 100%;
+                cursor: pointer;
+            }
+
+            .download-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+                color: white;
+            }
+
+            .download-btn:active {
+                transform: translateY(0);
+            }
+
+            .download-btn:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+                color: white;
+            }
+
+            .loading-counter {
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.5;
+                }
+            }
+
+            /* Адаптивность */
+            @media (max-width: 768px) {
+                .main-header {
+                    padding: 1.5rem 0;
+                }
+
+                .main-header h1 {
+                    font-size: 2rem;
+                }
+
+                .file-item {
+                    padding: 1rem;
+                }
+
+                .file-name {
+                    font-size: 1.1rem;
+                }
+            }
+
+            /* Стили для старых браузеров */
+            .no-gradients .main-header {
+                background: #667eea;
+            }
+
+            .no-gradients .download-btn {
+                background: #667eea;
+            }
+
+            .no-gradients .download-btn:hover {
+                background: #5a67d8;
+            }
+        </style>
+    </head>
+    <body>
+        <header class="main-header">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-12 text-center">
+                        <h1>{{ .Title }}</h1>
+                        <p class="file-count">
+                            <i
+                                class="glyphicon glyphicon-file"
+                                aria-hidden="true"
+                            ></i>
+                            Файлов: {{ (len .Files) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-8 col-md-offset-2">
+                        <ul class="file-list">
+                            {{ range .Files }}
+                            <li class="file-item">
+                                <div class="file-info">
+                                    <span class="file-name">
+                                        <i
+                                            class="glyphicon glyphicon-download-alt"
+                                            aria-hidden="true"
+                                        ></i>
+                                        {{ if .Description }}{{ .Description
+                                        }}{{ else }}{{ .Name }}{{ end }}
+                                    </span>
+                                    <span class="file-meta">
+                                        Скачиваний:
+                                        <span
+                                            class="counter loading-counter"
+                                            data-file-id="{{ .ID }}"
+                                            >—</span
+                                        >
+                                    </span>
+                                </div>
+                                <form
+                                    class="download-form"
+                                    action="/file/{{ .ID }}/"
+                                    method="POST"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="btn download-btn"
+                                    >
+                                        <i
+                                            class="glyphicon glyphicon-cloud-download"
+                                            aria-hidden="true"
+                                        ></i>
+                                        Скачать файл
+                                    </button>
+                                </form>
+                            </li>
+                            {{ end }}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- jQuery для совместимости со старыми браузерами -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+        <script>
+            (function ($) {
+                var COUNTERS_UPDATE_INTERVAL = 30;
+                var COUNTERS_UPDATE_DELAY = 1;
+
+                var updateInterval;
+                var isPageVisible = true;
+
+                // Проверка поддержки современных API
+                var supportsVisibilityAPI =
+                    typeof document.visibilityState !== "undefined";
+
+                $(document).ready(function () {
+                    // Убираем анимацию загрузки после первой загрузки
+                    setTimeout(function () {
+                        $(".counter").removeClass("loading-counter");
+                    }, 500);
+
+                    loadCounters();
+                    startAutoUpdate(COUNTERS_UPDATE_INTERVAL);
+
+                    $(".download-form").submit(function (event) {
+                        var $btn = $(this).find(".download-btn");
+                        $btn.html(
+                            '<i class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></i> Скачивание...',
+                        );
+                        $btn.prop("disabled", true);
+
+                        setTimeout(function () {
+                            loadCounters();
+                            $btn.html(
+                                '<i class="glyphicon glyphicon-cloud-download"></i> Скачать файл',
+                            );
+                            $btn.prop("disabled", false);
+                        }, COUNTERS_UPDATE_DELAY * 1000);
+                    });
+
+                    // Поддержка Visibility API только в современных браузерах
+                    if (supportsVisibilityAPI) {
+                        $(document).on("visibilitychange", function () {
+                            isPageVisible =
+                                document.visibilityState !== "hidden";
+                            if (isPageVisible) {
+                                loadCounters();
+                                if (!updateInterval) {
+                                    startAutoUpdate(COUNTERS_UPDATE_INTERVAL);
+                                }
+                            } else {
+                                stopAutoUpdate();
+                            }
+                        });
+                    }
+
+                    // Fallback для старых браузеров - обновление при фокусе
+                    $(window)
+                        .on("focus", function () {
+                            isPageVisible = true;
+                            loadCounters();
+                            if (!updateInterval) {
+                                startAutoUpdate(COUNTERS_UPDATE_INTERVAL);
+                            }
+                        })
+                        .on("blur", function () {
+                            isPageVisible = false;
+                            stopAutoUpdate();
+                        });
+                });
+
+                function startAutoUpdate(intervalSeconds) {
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                    }
+
+                    updateInterval = setInterval(
+                        function () {
+                            if (isPageVisible) {
+                                loadCounters();
+                            }
+                        },
+                        (intervalSeconds || COUNTERS_UPDATE_INTERVAL) * 1000,
+                    );
+                }
+
+                function stopAutoUpdate() {
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                        updateInterval = null;
+                    }
+                }
+
+                function loadCounters() {
+                    var apiUrl = "/stat/{{.ID}}/";
+
+                    $.getJSON(apiUrl)
+                        .done(function (data) {
+                            if (data) {
+                                $("[data-file-id]").each(function (idx, el) {
+                                    var $el = $(el);
+                                    var id = $el.attr("data-file-id");
+                                    if (data.hasOwnProperty(id)) {
+                                        $el.text(data[id]);
+                                    }
+                                });
+                            }
+                        })
+                        .fail(function () {
+                            console.error(
+                                "Не удалось загрузить статистику скачиваний.",
+                            );
+                            $("[data-file-id]").text("—");
+                        });
+                }
+
+                // Анимация для кнопки обновления в старых браузерах
+                var style = document.createElement("style");
+                style.innerHTML =
+                    ".glyphicon-refresh-animate { animation: spin 1s infinite linear; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
+                document.head.appendChild(style);
+            })(jQuery);
+        </script>
+    </body>
+</html>

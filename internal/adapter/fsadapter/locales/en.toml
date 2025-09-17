@@ -1,9 +1,14 @@
-FilesToDownload = "Files for download"
-DownloadButton = "Download"
-DownloadCounter = "Downloads"
-Title = "Folder {{ .Name }}"
-NoFiles = "No files"
+[files_count_label]
+description = "Label showing the number of files in the download"
+one = "{{.Count}} file"
+other = "{{.Count}} files"
 
-[TotalFiles]
-one = "{{ .PluralCount }} file"
-other = "{{ .PluralCount }} files"
+[downloads_label]
+description = "Label for download count"
+one = "Download"
+other = "Downloads"
+
+[download_button]
+description = "Text on the download button"
+one = "Download"
+other = "Download"
