@@ -1,13 +1,9 @@
-{{/* =======================================================================
-*/}} {{/* Основной шаблон */}} {{/*
-======================================================================= */}}
 <!doctype html>
-<html lang="ru">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{ .Title }}</title>
-        <!-- Подключаем Bootstrap 5 CSS для стилей -->
         <link
             href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
             rel="stylesheet"
@@ -15,7 +11,6 @@
             crossorigin="anonymous"
         />
         <style>
-            /* У Markdown-контента могут быть свои стили. Добавим базовые отступы. */
             body .markdown-content h1,
             body .markdown-content h2,
             body .markdown-content h3 {
@@ -36,7 +31,6 @@
             </header>
 
             <main>
-                <!-- Оборачиваем контент из Markdown в div для возможных доп. стилей -->
                 <div class="markdown-content">{{ .ContentHTML }}</div>
             </main>
 
@@ -45,20 +39,22 @@
             </footer>
         </div>
 
-        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <script
+            src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"
+        ></script>
         <script>
-            // Заменяем const и let на var для максимальной совместимости со старыми браузерами
             ;(function ($) {
-                var COUNTERS_UPDATE_INTERVAL = 30 // в секундах
-                var COUNTERS_UPDATE_DELAY = 1 // в секундах
+                var COUNTERS_UPDATE_INTERVAL = 30
+                var COUNTERS_UPDATE_DELAY = 1
                 var updateInterval
                 var isPageVisible = true
 
                 $(document).ready(function () {
-                    // Т.к. ID раздачи теперь не в шаблоне, а в данных, получаем его так
                     var distributionId = {{ .ID }};
                     if (!distributionId) {
-                        console.error("ID раздачи не найден.");
+                        console.error("Downloa ID not found");
                         return;
                     }
                     var apiUrl = '/stat/' + distributionId + '/';
@@ -115,7 +111,7 @@
                             })
                         }
                     }).fail(function () {
-                        console.error('Не удалось загрузить статистику скачиваний.');
+                        console.error('Cannot get download statistics.');
                         $('[data-file-id]').text('х');
                     })
                 }
@@ -124,24 +120,17 @@
     </body>
 </html>
 
-{{/* =======================================================================
-*/}} {{/* Именованный шаблон для ОДНОГО файла. Генерирует красивый блок. */}}
-{{/* Контекст (.): одна структура файла (с полями ID, Name, Description) */}}
-{{/* =======================================================================
-*/}} {{ define "FILE" }}
+{{ define "FILE" }}
 <div
     class="list-group-item d-flex justify-content-between align-items-center mb-2"
 >
-    <!-- Используем классы из list-group для консистентности -->
     <div class="me-3">
-        <!-- Имя файла или описание -->
         <div class="fw-bold">
             {{ if .Description }}{{ .Description }}{{ else }}{{ .Name }}{{ end
             }}
         </div>
-        <!-- Мета-информация: счетчик скачиваний -->
         <div class="text-muted small">
-            Скачиваний:
+            Downloads:
             <span
                 class="counter badge bg-secondary rounded-pill"
                 data-file-id="{{ .ID }}"
@@ -150,21 +139,13 @@
             </span>
         </div>
     </div>
-    <!-- Форма скачивания с красивой кнопкой -->
+
     <form class="download-form" action="/file/{{ .ID }}/" method="POST">
         <button type="submit" class="btn btn-primary btn-sm flex-shrink-0">
             Скачать
         </button>
     </form>
 </div>
-{{ end }} {{/*
-======================================================================= */}}
-{{/* Именованный шаблон для ВСЕХ файлов. Генерирует список. */}} {{/* Контекст
-(.): срез структур файлов */}} {{/*
-======================================================================= */}} {{
-define "FILES" }}
-<div class="list-group">
-    {{ range . }} {{/* Для каждого файла вызываем шаблон "FILE", передавая ему
-    текущий файл в качестве контекста */}} {{ template "FILE" . }} {{ end }}
-</div>
+{{ end }} {{ define "FILES" }}
+<div class="list-group">{{ range . }} {{ template "FILE" . }} {{ end }}</div>
 {{ end }}
