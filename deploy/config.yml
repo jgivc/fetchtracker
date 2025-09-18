@@ -1,0 +1,5 @@
+listen: :10011
+redis: redis://redis/0
+indexer:
+  work_dir: /data/
+  workers: 2

@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -26,6 +28,8 @@ const (
 	defaultRedirectHeader    = "X-Accel-Redirect"
 	defaultRealIPHeader      = "X-Real-IP"
 	defaultDumpFilename      = "/tmp/fetchtracker_counters.json"
+
+	envHandlerURLname = "FT_URL"
 )
 
 type IndexerConfig struct {
@@ -98,7 +102,7 @@ func MustLoad(path string) *Config {
 	return config
 }
 
-func (c *Config) SetDefaults() {
+func (c *Config) SetDefaults() error {
 	if c.Listen == "" {
 		c.Listen = defaultListen
 	}
@@ -145,9 +149,36 @@ func (c *Config) SetDefaults() {
 	}
 
 	// HandlerConfig
+	// Fix handler URL
+	var (
+		strURL string
+		noPort bool
+	)
+
 	if c.HandlerConfig.URL == "" {
-		c.HandlerConfig.URL = defaultURL
+		strURL = defaultURL
 	}
+	if ftURL := os.Getenv(envHandlerURLname); ftURL != "" {
+		strURL = ftURL
+	}
+
+	u, err := url.Parse(strURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse handler url: %w", err)
+	}
+
+	if port := u.Port(); u.Scheme == "http" && port == "80" || u.Scheme == "https" && port == "443" {
+		noPort = true
+	}
+
+	if noPort {
+		strURL = fmt.Sprintf("%s://%s%s", u.Scheme, u.Hostname(), u.RequestURI())
+	} else {
+		strURL = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.RequestURI())
+	}
+
+	// To prevent double slash
+	c.HandlerConfig.URL = strings.TrimSuffix(strURL, "/")
 
 	if c.HandlerConfig.RedirectHeader == "" {
 		c.HandlerConfig.RedirectHeader = defaultRedirectHeader
@@ -156,6 +187,8 @@ func (c *Config) SetDefaults() {
 	if c.HandlerConfig.RealIPHeader == "" {
 		c.HandlerConfig.RealIPHeader = defaultRealIPHeader
 	}
+
+	return nil
 }
 
 func (c *Config) FSAdapterConfig() *FSAdapterConfig {

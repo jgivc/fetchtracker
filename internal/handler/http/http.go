@@ -58,9 +58,9 @@ func NewIndexHandler(srv IndexService, siteURL string, log *slog.Logger) http.Ha
 		if err != nil {
 			switch {
 			case errors.Is(err, common.ErrIndexingProcessHasAlreadyStarted):
-				http.Error(w, "Index process has already started", http.StatusConflict)
+				w.Write([]byte("Index process has already started.\r\n"))
 			default:
-				http.Error(w, "Cannot start index process", http.StatusInternalServerError)
+				w.Write([]byte("Cannot start index process. Something went wrong.\r\n"))
 			}
 
 			return
