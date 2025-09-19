@@ -101,7 +101,7 @@ handler:
 
 ### Creating Distributions
 
-To create a distribution, simply create a new folder in the directory specified by `work_dir` in the configuration file. After running the indexer, a page will be generated for this folder [2].
+To create a distribution, simply create a new folder in the directory specified by `work_dir` in the configuration file. After running the indexer, a page will be generated for this folder.
 
 ### Templating
 
@@ -111,6 +111,8 @@ The indexer determines which HTML template to use for generating a distribution 
 2.  If the folder does not contain a `description.md` file (configurable via `desc_filename`), the default template (`index_template` or built-in) is used.
 3.  If the folder contains both a `template.html` (configurable via `template_filename`) and a `description.md`, the content from `description.md` is converted from Markdown and inserted into `template.html`.
 4.  If the folder only contains `description.md`, it is converted and inserted into the default template (`md_template` or built-in).
+
+> **Please note**: Pages are generated from templates only once during the indexing process. Consequently, download counters need to be loaded separately (e.g., via JavaScript). The default templates already include the necessary code to fetch these counters. You can find examples in the `internal/adapter/fsadapter/templates` directory. Be sure to add similar code to your custom templates if you want to display download counts.
 
 ### Using Markdown
 
