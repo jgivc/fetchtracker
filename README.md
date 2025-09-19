@@ -54,7 +54,7 @@ Specify the path to your folders in the `SHARE_PATH` variable.
 4.  Create a `config.yml` configuration file with the appropriate settings.
 5.  Run the application:
     ```bash
-    ./fetchtracker -f config.yml
+    ./fetchtracker -с config.yml
     ```
 6.  Start the indexing process and get the a-ddresses of your distributions.
 

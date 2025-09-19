@@ -55,7 +55,7 @@ SHARE_PATH=/path/to/folders docker compose -f deploy/docker-compose.yml up --bui
 4.  Создайте файл конфигурации `config.yml` с соответствующими настройками.
 5.  Запустите приложение:
     ```bash
-    ./fetchtracker -f config.yml
+    ./fetchtracker -с config.yml
     ```
 6. Запустите процесс индексации и получите адреса раздач.
 
