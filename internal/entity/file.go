@@ -1,14 +1,14 @@
 package entity
 
-// File представляет один скачиваемый файл внутри раздачи.
+// File represents a single downloadable file within a download.
 type File struct {
-	ID          string // Уникальный идентификатор файла (например, хеш пути файла)
-	Name        string // Имя файла
-	Description string // Краткое описание файла, выводится вместо Name, если указано(frontmatted).
-	SourcePath  string // Внутренний путь к файлу на диске (относительно корня раздачи)
+	ID          string // A unique identifier for the file (e.g., a hash of the file path)
+	Name        string // The name of the file
+	Description string // A short description of the file, shown instead of Name if provided (from frontmatter).
+	SourcePath  string // Internal path to the file on disk (relative to the download's root)
 	URL         string
-	Size        int64  // Размер файла в байтах
-	MIMEType    string // MIME-тип файла
+	Size        int64  // The size of the file in bytes
+	MIMEType    string // The MIME type of the file
 }
 
 type FileCounter struct {

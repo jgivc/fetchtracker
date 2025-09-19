@@ -1,0 +1,32 @@
+# Port the application listens on
+listen: :10011
+# URL for connecting to Redis
+redis: redis://localhost/0
+log_level: info
+indexer:
+  # Working directory where distribution folders are located
+  work_dir: /data/
+  # Number of workers for indexing
+  workers: 2
+  # Filename for a custom distribution page template
+  index_filename: index.html
+  # Filename for a description in Markdown format
+  desc_filename: description.md
+  # Template filename for inserting content from Markdown
+  template_filename: template.html
+  # Path to the default index.html template (if used)
+  index_template: ""
+  # Path to the default template.html (if used)
+  md_template: ""
+  # List of files to be ignored during indexing
+  skip_files:
+    - description.md
+  # File to dump counters to upon receiving the USR2 signal
+  dump_filename: /tmp/fetchtracker_counters.json
+handler:
+  # Base URL used for generating links to distributions
+  url: http://127.0.0.1
+  # Header for redirecting to Nginx
+  header_redirect: X-Accel-Redirect
+  # Header from which the user's real IP will be taken
+  header_realip: X-Real-IP

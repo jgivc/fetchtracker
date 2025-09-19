@@ -2,16 +2,16 @@ package entity
 
 import "time"
 
-// Download представляет одну раздачу (папку). Это агрегат.
+// Download represents a single download (a folder). It's an aggregate.
 type Download struct {
-	ID          string // Стабильный хеш, уникальный идентификатор раздачи
-	Title       string // Заголовок раздачи из frontmatter, если есть или имя папки
-	PageContent string // HTML-описание из description.md
+	ID          string // Stable hash, a unique identifier for the download
+	Title       string // The title of the download from frontmatter, if available, or the folder name
+	PageContent string // HTML description from description.md
 	PageHash    string // ETag
 	Enabled     bool
-	Files       []*File   // Список файлов, принадлежащих этой раздаче
-	SourcePath  string    // Внутренний путь к папке на диске
-	CreatedAt   time.Time // Время создания (первой индексации)
+	Files       []*File   // The list of files belonging to this download
+	SourcePath  string    // Internal path to the folder on the disk
+	CreatedAt   time.Time // Creation time (of the first indexing)
 }
 
 type DownloadCounters struct {
