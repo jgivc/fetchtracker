@@ -84,7 +84,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	// Set default values
-	config.SetDefaults()
+	if err := config.SetDefaults(); err != nil {
+		return nil, fmt.Errorf("cannot set config defaults: %w", err)
+	}
 
 	// Validate config
 	// if err := config.Validate(); err != nil {
@@ -155,9 +157,11 @@ func (c *Config) SetDefaults() error {
 		noPort bool
 	)
 
-	if c.HandlerConfig.URL == "" {
+	strURL = c.HandlerConfig.URL
+	if strURL == "" {
 		strURL = defaultURL
 	}
+
 	if ftURL := os.Getenv(envHandlerURLname); ftURL != "" {
 		strURL = ftURL
 	}

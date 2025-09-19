@@ -71,9 +71,16 @@ type PageContext struct {
 
 type Frontmatter struct {
 	Title   string            `yaml:"title"`
-	Enabled bool              `yaml:"enabled"`
+	Enabled *bool             `yaml:"enabled"`
 	Files   map[string]string `yaml:"files"`
 	Author  string            `yaml:"author"`
+}
+
+func (f *Frontmatter) IsEnabled() bool {
+	if f.Enabled == nil {
+		return true // default
+	}
+	return *f.Enabled
 }
 
 type fsAdapter struct {
@@ -189,7 +196,11 @@ func (a *fsAdapter) parseMarkdown(folderPath string, download *entity.Download) 
 
 	if fm != nil {
 		download.Title = fm.Title
-		download.Enabled = fm.Enabled
+		download.Enabled = fm.IsEnabled()
+
+		if !download.Enabled {
+			return fmt.Errorf("folder %s is disabled by frontmatter variable", folderPath)
+		}
 
 		if len(fm.Files) > 0 {
 			for i := range download.Files {

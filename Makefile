@@ -25,4 +25,6 @@ testdata:
 	$(DD) if=/dev/urandom of=$(TESTDATA)/two/file1.img bs=1M count=2 > /dev/null 2>&1
 	$(DD) if=/dev/urandom of=$(TESTDATA)/two/file2.img bs=1M count=8 > /dev/null 2>&1
 
-
+run:
+	@echo "Run docker..."
+	@SHARE_PATH=/path/to/folders docker compose -f deploy/docker-compose.yml up --build
