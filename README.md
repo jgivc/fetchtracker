@@ -207,3 +207,9 @@ The project uses a `Makefile` to automate common tasks.
 *   `make release`: Creates release archives.
 *   `make clean`: Cleans up build artifacts.
 *   `make run`: Runs the application via Docker.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
